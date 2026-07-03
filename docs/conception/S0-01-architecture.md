@@ -49,7 +49,7 @@ src/
 ```
 
 **Flux de données :**
-`Page → dispatch(thunk) → axios → API → Redux state → UI re-render`
+`Page → dispatch(thunk) → fetch → API → Redux state → UI re-render`
 
 ### Backend — Node.js / Express
 

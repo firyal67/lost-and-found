@@ -1,4 +1,4 @@
-import apiClient from "@/lib/axios";
+import apiFetch from "@@/lib/api-clientient";
 
 export interface RegisterPayload {
   name: string;
@@ -13,11 +13,15 @@ export interface LoginPayload {
 
 export const authApi = {
   register: async (payload: RegisterPayload) => {
-    const res = await apiClient.post("/auth/register", payload);
-    return res.data;
+    return apiFetch("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
   login: async (payload: LoginPayload) => {
-    const res = await apiClient.post("/auth/login", payload);
-    return res.data;
+    return apiFetch("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 };

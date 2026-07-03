@@ -30,7 +30,7 @@ lost-found-tunisia/
         │   ├── layout/     Header · Sidebar · DashboardLayout
         │   └── features/   posts · auth · contacts · admin
         ├── store/          index · hooks · slices/
-        ├── lib/            axios · utils · api/
+        ├── lib/            api-client.ts · utils · api/
         ├── hooks/          useAuth · usePosts
         └── middleware.ts   protections de routes
 ```
@@ -57,7 +57,7 @@ lost-found-tunisia/
 **Frontend**
 - `"use client"` uniquement si nécessaire
 - Pas de `any` TypeScript
-- Appels API uniquement via les thunks Redux, jamais directement dans les composants
+- Appels API via `apiFetch` (wrapper Fetch natif), jamais directement dans les composants
 
 ## Git
 

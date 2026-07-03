@@ -8,7 +8,7 @@ Application web **Lost & Found Tunisia** — architecture 3-tiers découplée :
 ┌──────────────────────────────────────────────────────────────┐
 │  CLIENT (Browser)                                            │
 │  Next.js 14 (App Router) · TypeScript                        │
-│  TailwindCSS · Shadcn UI · Redux Toolkit · Axios             │
+│  TailwindCSS · Shadcn UI · Redux Toolkit · Fetch API         │
 └────────────────────┬─────────────────────────────────────────┘
                      │ HTTPS / REST JSON
                      │ Cookie httpOnly (refresh token)
@@ -43,7 +43,7 @@ src/
 │   └── features/           # Composants métier (PostCard, MatchList…)
 ├── store/                  # Redux Toolkit (slices : auth, posts, contact)
 ├── lib/
-│   ├── axios.ts            # Instance Axios configurée
+│   ├── api-client.ts       # Fetch wrapper configuré
 │   └── api/                # Fonctions d'appel API par domaine
 └── hooks/                  # Custom hooks React
 ```
@@ -89,6 +89,7 @@ Request → CORS → cookieParser → morgan
 | Repository via Mongoose | Abstraction base de données |
 | Slice Redux par domaine | État global frontend découplé |
 | httpOnly Cookie | Sécurité refresh token |
+| Fetch API natif | Requêtes HTTP sans dépendance externe |
 
 ## Communication inter-couches
 

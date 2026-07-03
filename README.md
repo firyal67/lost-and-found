@@ -22,7 +22,7 @@ Lost & Found Tunisia connects people who have lost objects with those who have f
 - **TailwindCSS** + **Shadcn UI**
 - **Redux Toolkit** — global state management
 - **React Hook Form** + **Zod** — form validation
-- **Axios** — HTTP client
+- **Fetch API** — native HTTP client (no external dependency)
 
 ### Backend
 - **Node.js** + **Express**

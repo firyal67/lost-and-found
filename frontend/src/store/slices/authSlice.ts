@@ -27,8 +27,8 @@ export const registerUser = createAsyncThunk(
     try {
       return await authApi.register(payload);
     } catch (err: unknown) {
-      const e = err as { response?: { data?: unknown } };
-      return rejectWithValue(e.response?.data ?? { message: "Network error." });
+      const e = err as { response?: unknown; message?: string };
+      return rejectWithValue(e.response ?? { message: e.message ?? "Network error." });
     }
   }
 );
@@ -39,8 +39,8 @@ export const loginUser = createAsyncThunk(
     try {
       return await authApi.login(payload);
     } catch (err: unknown) {
-      const e = err as { response?: { data?: unknown } };
-      return rejectWithValue(e.response?.data ?? { message: "Network error." });
+      const e = err as { response?: unknown; message?: string };
+      return rejectWithValue(e.response ?? { message: e.message ?? "Network error." });
     }
   }
 );

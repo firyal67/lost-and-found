@@ -30,8 +30,6 @@ const schema = z
     path: ["confirmPassword"],
   });
 
-type FormValues = z.infer<typeof schema>;
-
 export default function RegisterPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -39,7 +37,7 @@ export default function RegisterPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const { register, handleSubmit, setError, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, setError, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
   });
 
@@ -63,7 +61,7 @@ export default function RegisterPage() {
     return () => { dispatch(clearErrors()); };
   }, [error, fieldErrors, dispatch]);
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = (values) => {
     dispatch(registerUser({ name: values.name, email: values.email, password: values.password }));
   };
 
@@ -80,29 +78,23 @@ export default function RegisterPage() {
           <CardTitle className="text-xl">Créer un compte</CardTitle>
           <CardDescription>Rejoignez la plateforme Lost &amp; Found Tunisie</CardDescription>
         </CardHeader>
-
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-            {/* Nom */}
             <div className="space-y-1.5">
               <Label htmlFor="name">Nom complet</Label>
-              <Input id="name" placeholder="Ahmed Ben Ali" autoComplete="name" aria-invalid={!!errors.name} {...register("name")} className={errors.name ? "border-destructive" : ""} />
+              <Input id="name" placeholder="Ahmed Ben Ali" autoComplete="name" {...register("name")} className={errors.name ? "border-destructive" : ""} />
               {errors.name && <p className="text-xs text-destructive" role="alert">{errors.name.message}</p>}
             </div>
-
-            {/* Email */}
             <div className="space-y-1.5">
               <Label htmlFor="email">Adresse email</Label>
-              <Input id="email" type="email" placeholder="ahmed@example.com" autoComplete="email" aria-invalid={!!errors.email} {...register("email")} className={errors.email ? "border-destructive" : ""} />
+              <Input id="email" type="email" placeholder="ahmed@example.com" autoComplete="email" {...register("email")} className={errors.email ? "border-destructive" : ""} />
               {errors.email && <p className="text-xs text-destructive" role="alert">{errors.email.message}</p>}
             </div>
-
-            {/* Mot de passe */}
             <div className="space-y-1.5">
               <Label htmlFor="password">Mot de passe</Label>
               <div className="relative">
-                <Input id="password" type={showPwd ? "text" : "password"} placeholder="••••••••" autoComplete="new-password" aria-invalid={!!errors.password} {...register("password")} className={errors.password ? "border-destructive pr-10" : "pr-10"} />
-                <button type="button" onClick={() => setShowPwd((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={showPwd ? "Masquer" : "Afficher"}>
+                <Input id="password" type={showPwd ? "text" : "password"} placeholder="••••••••" autoComplete="new-password" {...register("password")} className={errors.password ? "border-destructive pr-10" : "pr-10"} />
+                <button type="button" onClick={() => setShowPwd((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
@@ -112,25 +104,21 @@ export default function RegisterPage() {
                 <p className="text-xs text-muted-foreground">8 caractères min, majuscule, minuscule et chiffre</p>
               )}
             </div>
-
-            {/* Confirmer mot de passe */}
             <div className="space-y-1.5">
               <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
               <div className="relative">
-                <Input id="confirmPassword" type={showConfirm ? "text" : "password"} placeholder="••••••••" autoComplete="new-password" aria-invalid={!!errors.confirmPassword} {...register("confirmPassword")} className={errors.confirmPassword ? "border-destructive pr-10" : "pr-10"} />
-                <button type="button" onClick={() => setShowConfirm((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={showConfirm ? "Masquer" : "Afficher"}>
+                <Input id="confirmPassword" type={showConfirm ? "text" : "password"} placeholder="••••••••" autoComplete="new-password" {...register("confirmPassword")} className={errors.confirmPassword ? "border-destructive pr-10" : "pr-10"} />
+                <button type="button" onClick={() => setShowConfirm((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
               {errors.confirmPassword && <p className="text-xs text-destructive" role="alert">{errors.confirmPassword.message}</p>}
             </div>
-
             <Button type="submit" size="lg" disabled={isLoading} className="w-full mt-2">
               {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Création en cours…</> : "Créer mon compte"}
             </Button>
           </form>
         </CardContent>
-
         <CardFooter className="justify-center text-sm text-muted-foreground">
           Déjà un compte ?&nbsp;
           <Link href="/auth/login" className="text-blue-600 hover:underline font-medium">Se connecter</Link>

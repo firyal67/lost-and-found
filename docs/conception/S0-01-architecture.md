@@ -7,7 +7,7 @@ Application web **Lost & Found Tunisia** — architecture 3-tiers découplée :
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  CLIENT (Browser)                                            │
-│  Next.js 14 (App Router) · TypeScript                        │
+│  Next.js 14 (App Router) · JavaScript (JSX)                  │
 │  TailwindCSS · Shadcn UI · Redux Toolkit · Fetch API         │
 └────────────────────┬─────────────────────────────────────────┘
                      │ HTTPS / REST JSON

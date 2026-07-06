@@ -18,7 +18,7 @@ Lost & Found Tunisia connects people who have lost objects with those who have f
 ## Tech Stack
 
 ### Frontend
-- **Next.js 14** (App Router) + **TypeScript**
+- **Next.js 14** (App Router) + **JavaScript (JSX)**
 - **TailwindCSS** + **Shadcn UI**
 - **Redux Toolkit** — global state management
 - **React Hook Form** + **Zod** — form validation

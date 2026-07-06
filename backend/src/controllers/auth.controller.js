@@ -1,15 +1,17 @@
+const crypto = require('crypto');
 const User = require('../models/User.model');
 const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
 } = require('../utils/jwt.utils');
+const { sendVerificationEmail } = require('../services/email.service');
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 const setRefreshCookie = (res, token) => {
@@ -24,16 +26,12 @@ const clearRefreshCookie = (res) => {
   });
 };
 
-/**
- * POST /api/auth/register
- * US-01: Create user account with email & password
- */
 const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
     const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existingUser) {//on empeche l'utilisateur qui a deja un compte
+    if (existingUser) {
       return res.status(409).json({
         success: false,
         message: 'An account with this email already exists.',
@@ -41,6 +39,17 @@ const register = async (req, res, next) => {
     }
 
     const user = await User.create({ name, email, password });
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+    await User.findByIdAndUpdate(user._id, {
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    sendVerificationEmail({ to: user.email, name: user.name, token: verificationToken })
+      .catch((err) => console.error('Failed to send verification email:', err.message));
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
@@ -51,7 +60,7 @@ const register = async (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Account created successfully.',
+      message: 'Account created successfully. Please check your email to verify your account.',
       data: { user, accessToken },
     });
   } catch (error) {
@@ -59,10 +68,6 @@ const register = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/auth/login
- * US-02: Sign in with email & password
- */
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -107,10 +112,6 @@ const login = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/auth/refresh
- * Échange le refresh token (cookie) contre un nouveau access token
- */
 const refresh = async (req, res, next) => {
   try {
     const token = req.cookies?.refreshToken;
@@ -137,7 +138,6 @@ const refresh = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Your account has been suspended.' });
     }
 
-    // Rotation du refresh token (one-time use)
     const newRefreshToken = generateRefreshToken(user._id);
     await User.findByIdAndUpdate(user._id, {
       $pull: { refreshTokens: token },
@@ -156,23 +156,18 @@ const refresh = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/auth/logout
- * Invalide le refresh token et supprime le cookie
- */
 const logout = async (req, res, next) => {
   try {
     const token = req.cookies?.refreshToken;
 
     if (token) {
-      // Supprimer ce refresh token de la base
       try {
         const decoded = verifyRefreshToken(token);
         await User.findByIdAndUpdate(decoded.id, {
           $pull: { refreshTokens: token },
         });
       } catch {
-        // Token déjà expiré/invalide — on nettoie quand même le cookie
+        // token already expired, clear cookie anyway
       }
     }
 
@@ -183,12 +178,71 @@ const logout = async (req, res, next) => {
   }
 };
 
-/**
- * GET /api/auth/me
- * Retourne l'utilisateur connecté (nécessite authenticateJWT)
- */
 const getMe = async (req, res) => {
   return res.status(200).json({ success: true, data: { user: req.user } });
 };
 
-module.exports = { register, login, refresh, logout, getMe };
+const verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: { $gt: Date.now() },
+    }).select('+emailVerificationToken +emailVerificationExpires');
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification link.',
+      });
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Email verified successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resendVerification = async (req, res, next) => {
+  try {
+    if (req.user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already verified.',
+      });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+    await User.findByIdAndUpdate(req.user._id, {
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    sendVerificationEmail({
+      to: req.user.email,
+      name: req.user.name,
+      token: verificationToken,
+    }).catch((err) => console.error('Failed to resend verification email:', err.message));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Verification email sent. Please check your inbox.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, refresh, logout, getMe, verifyEmail, resendVerification };

@@ -1,10 +1,6 @@
 const { verifyAccessToken } = require('../utils/jwt.utils');
 const User = require('../models/User.model');
 
-/**
- * Middleware: vérifie le Bearer token JWT dans Authorization header
- * Attache req.user si valide
- */
 const authenticateJWT = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -37,10 +33,6 @@ const authenticateJWT = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware: vérifie que l'user a le(s) rôle(s) requis
- * Usage: authorizeRole('admin') ou authorizeRole('user', 'admin')
- */
 const authorizeRole = (...roles) => (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ success: false, message: 'Authentication required.' });

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ const schema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const { isLoading, error, fieldErrors, user } = useAppSelector((s) => s.auth);
   const [showPwd, setShowPwd] = useState(false);
@@ -33,9 +34,10 @@ export default function LoginPage() {
   useEffect(() => {
     if (user) {
       toast.success("Connexion réussie !");
-      router.push("/");
+      const redirect = searchParams.get("redirect") || "/";
+      router.push(redirect);
     }
-  }, [user, router]);
+  }, [user, router, searchParams]);
 
   useEffect(() => {
     fieldErrors?.forEach(({ field, message }) => {

@@ -13,4 +13,10 @@ export const authApi = {
       body: JSON.stringify(payload),
     });
   },
+  logout: async () => {
+    return apiFetch("/auth/logout", { method: "POST" });
+  },
+  getMe: async (token) => {
+    return apiFetch("/auth/me", { token });
+  },
 };

@@ -5,7 +5,7 @@ const {
   generateRefreshToken,
   verifyRefreshToken,
 } = require('../utils/jwt.utils');
-const { sendVerificationEmail } = require('../services/email.service');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email.service');
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -48,8 +48,15 @@ const register = async (req, res, next) => {
       emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
-    sendVerificationEmail({ to: user.email, name: user.name, token: verificationToken })
-      .catch((err) => console.error('Failed to send verification email:', err.message));
+    // En développement, on envoie l'email et on récupère le previewUrl pour l'afficher côté client
+    let emailPreviewUrl = null;
+    try {
+      const result = await sendVerificationEmail({ to: user.email, name: user.name, token: verificationToken });
+      emailPreviewUrl = result.previewUrl || null;
+      if (emailPreviewUrl) console.log(`[DEV] Email preview: ${emailPreviewUrl}`);
+    } catch (err) {
+      console.error('Failed to send verification email:', err.message);
+    }
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
@@ -61,7 +68,11 @@ const register = async (req, res, next) => {
     return res.status(201).json({
       success: true,
       message: 'Account created successfully. Please check your email to verify your account.',
-      data: { user, accessToken },
+      data: {
+        user,
+        accessToken,
+        ...(emailPreviewUrl && { emailPreviewUrl }),
+      },
     });
   } catch (error) {
     next(error);
@@ -213,8 +224,7 @@ const verifyEmail = async (req, res, next) => {
   }
 };
 
-const resendVerification = async (req, res, next) => {
-  try {
+const resendVerification = async (req, res, next) => {  try {
     if (req.user.isEmailVerified) {
       return res.status(400).json({
         success: false,
@@ -245,4 +255,75 @@ const resendVerification = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, refresh, logout, getMe, verifyEmail, resendVerification };
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Always return 200 to avoid email enumeration
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: 'If an account with that email exists, a reset link has been sent.',
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    await User.findByIdAndUpdate(user._id, {
+      passwordResetToken: hashedToken,
+      passwordResetExpires: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+    });
+
+    sendPasswordResetEmail({ to: user.email, name: user.name, token: resetToken })
+      .catch((err) => console.error('Failed to send password reset email:', err.message));
+
+    return res.status(200).json({
+      success: true,
+      message: 'If an account with that email exists, a reset link has been sent.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    }).select('+passwordResetToken +passwordResetExpires');
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset link.',
+      });
+    }
+
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    // Invalidate all existing sessions
+    user.refreshTokens = [];
+    await user.save();
+
+    clearRefreshCookie(res);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. Please log in with your new password.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, refresh, logout, getMe, verifyEmail, resendVerification, forgotPassword, resetPassword };

@@ -32,9 +32,8 @@ export async function middleware(request) {
     return NextResponse.next();
   }
 
-  if (matchesAny(pathname, AUTH_ROUTES) && isAuthenticated) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
+  // Ne pas rediriger depuis les pages auth — le cookie peut être expiré côté serveur.
+  // La redirection post-login est gérée côté client dans chaque page.
 
   return NextResponse.next();
 }

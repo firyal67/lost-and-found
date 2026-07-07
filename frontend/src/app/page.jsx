@@ -1,7 +1,12 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
 import { MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
+  const router = useRouter();
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-6">
       <div className="text-center max-w-2xl">
@@ -16,18 +21,21 @@ export default function HomePage() {
           Plateforme de mise en relation pour objets perdus et trouvés
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            href="/auth/register"
-            className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+          <Button
+            size="lg"
+            onClick={() => router.push("/auth/register")}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3"
           >
             Créer un compte
-          </Link>
-          <Link
-            href="/auth/login"
-            className="inline-flex items-center justify-center gap-2 border border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold px-6 py-3 rounded-lg transition-colors"
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => router.push("/auth/login")}
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold px-6 py-3"
           >
             Se connecter
-          </Link>
+          </Button>
         </div>
       </div>
     </main>

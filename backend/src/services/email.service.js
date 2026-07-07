@@ -54,11 +54,47 @@ const sendVerificationEmail = async ({ to, name, token }) => {
     `,
   });
 
-  if (nodemailer.getTestMessageUrl(info)) {
-    console.log(`Email preview: ${nodemailer.getTestMessageUrl(info)}`);
+  const previewUrl = nodemailer.getTestMessageUrl(info) || null;
+  if (previewUrl) {
+    console.log(`Email preview: ${previewUrl}`);
   }
 
-  return info;
+  return { info, previewUrl };
 };
 
-module.exports = { sendVerificationEmail };
+const sendPasswordResetEmail = async ({ to, name, token }) => {
+  const transporter = await createTransporter();
+  const resetUrl = `${process.env.CLIENT_URL}/auth/reset-password?token=${token}`;
+
+  const info = await transporter.sendMail({
+    from: `"Lost & Found Tunisie" <${process.env.SMTP_USER || 'noreply@lostandfound.tn'}>`,
+    to,
+    subject: 'Réinitialisation de votre mot de passe — Lost & Found Tunisie',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px; border: 1px solid #e5e7eb; border-radius: 12px;">
+        <h2 style="color: #1d4ed8; margin-bottom: 8px;">Lost&Found Tunisie</h2>
+        <p style="color: #374151;">Bonjour <strong>${name}</strong>,</p>
+        <p style="color: #374151;">Nous avons reçu une demande de réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${resetUrl}"
+             style="background-color: #2563eb; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+            Réinitialiser mon mot de passe
+          </a>
+        </div>
+        <p style="color: #6b7280; font-size: 13px;">Ce lien expire dans <strong>1 heure</strong>.</p>
+        <p style="color: #6b7280; font-size: 13px;">Si vous n'avez pas demandé de réinitialisation, ignorez cet email — votre mot de passe reste inchangé.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #9ca3af; font-size: 12px;">Lost & Found Tunisie — Plateforme de déclaration d'objets perdus et trouvés</p>
+      </div>
+    `,
+  });
+
+  const previewUrl = nodemailer.getTestMessageUrl(info) || null;
+  if (previewUrl) {
+    console.log(`Password reset email preview: ${previewUrl}`);
+  }
+
+  return { info, previewUrl };
+};
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail };

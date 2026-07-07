@@ -48,6 +48,14 @@ const userSchema = new mongoose.Schema(
       type: [String],
       select: false,
     },
+    passwordResetToken: {
+      type: String,
+      select: false,
+    },
+    passwordResetExpires: {
+      type: Date,
+      select: false,
+    },
   },
   { timestamps: true }
 );
@@ -69,6 +77,8 @@ userSchema.methods.toJSON = function () {
   delete obj.refreshTokens;
   delete obj.emailVerificationToken;
   delete obj.emailVerificationExpires;
+  delete obj.passwordResetToken;
+  delete obj.passwordResetExpires;
   delete obj.__v;
   return obj;
 };

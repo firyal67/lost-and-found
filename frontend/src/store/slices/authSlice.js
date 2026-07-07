@@ -59,8 +59,9 @@ export const hydrateAuth = createAsyncThunk(
 const initialState = {
   user: null,
   accessToken: null,
+  emailPreviewUrl: null,   // lien Ethereal en dev après register
   isLoading: false,
-  isHydrating: true,   // true pendant le check initial de session
+  isHydrating: true,
   error: null,
   fieldErrors: null,
 };
@@ -75,6 +76,7 @@ const handleFulfilled = (state, action) => {
   state.isLoading = false;
   state.user = action.payload.data.user;
   state.accessToken = action.payload.data.accessToken;
+  state.emailPreviewUrl = action.payload.data.emailPreviewUrl ?? null;
 };
 
 const handleRejected = (state, action) => {
@@ -95,6 +97,7 @@ const authSlice = createSlice({
     forceLogout(state) {
       state.user = null;
       state.accessToken = null;
+      state.emailPreviewUrl = null;
       state.error = null;
       state.fieldErrors = null;
     },

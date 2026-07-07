@@ -19,4 +19,16 @@ export const authApi = {
   getMe: async (token) => {
     return apiFetch("/auth/me", { token });
   },
+  forgotPassword: async (payload) => {
+    return apiFetch("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  resetPassword: async ({ token, password, confirmPassword }) => {
+    return apiFetch(`/auth/reset-password/${token}`, {
+      method: "POST",
+      body: JSON.stringify({ password, confirmPassword }),
+    });
+  },
 };

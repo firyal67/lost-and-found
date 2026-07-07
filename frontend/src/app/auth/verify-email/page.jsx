@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { MapPin, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token");
 
   const [status, setStatus] = useState("loading"); // loading | success | error
   const [message, setMessage] = useState("");
+  const hasVerified = useRef(false); // empêche le double appel en Strict Mode
 
   useEffect(() => {
     if (!token) {
@@ -22,12 +23,13 @@ export default function VerifyEmailPage() {
       return;
     }
 
+    // React Strict Mode monte/démonte deux fois en dev — on ignore le second appel
+    if (hasVerified.current) return;
+    hasVerified.current = true;
+
     const verify = async () => {
       try {
-        const res = await fetch(
-          `/api/auth/verify-email/${token}`,
-          { method: "GET" }
-        );
+        const res = await fetch(`/api/auth/verify-email/${token}`, { method: "GET" });
         const data = await res.json();
         if (res.ok) {
           setStatus("success");
@@ -92,5 +94,13 @@ export default function VerifyEmailPage() {
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

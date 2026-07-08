@@ -7,23 +7,28 @@ import { z } from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, MapPin, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { loginUser, clearErrors } from "@/store/slices/authSlice";
+import {
+  AuthBrandPanel,
+  MobileLogo,
+  FormField,
+  PasswordInput,
+  AuthFormCard,
+} from "@/components/auth/AuthShared";
 
 const schema = z.object({
-  email: z.string().email("Email invalide").trim().toLowerCase(),
+  email:    z.string().email("Email invalide").trim().toLowerCase(),
   password: z.string().min(1, "Mot de passe requis"),
 });
 
 function LoginForm() {
-  const router = useRouter();
+  const router       = useRouter();
   const searchParams = useSearchParams();
-  const dispatch = useAppDispatch();
+  const dispatch     = useAppDispatch();
   const { isLoading, error, fieldErrors, user } = useAppSelector((s) => s.auth);
   const [showPwd, setShowPwd] = useState(false);
 
@@ -34,16 +39,13 @@ function LoginForm() {
   useEffect(() => {
     if (user) {
       toast.success("Connexion réussie !");
-      const redirect = searchParams.get("redirect") || "/";
-      router.push(redirect);
+      router.push(searchParams.get("redirect") || "/");
     }
   }, [user, router, searchParams]);
 
   useEffect(() => {
     fieldErrors?.forEach(({ field, message }) => {
-      if (field === "email" || field === "password") {
-        setError(field, { message });
-      }
+      if (field === "email" || field === "password") setError(field, { message });
     });
   }, [fieldErrors, setError]);
 
@@ -52,61 +54,77 @@ function LoginForm() {
     return () => { dispatch(clearErrors()); };
   }, [error, fieldErrors, dispatch]);
 
-  const onSubmit = (values) => {
+  const onSubmit = (values) =>
     dispatch(loginUser({ email: values.email, password: values.password }));
-  };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <MapPin className="h-7 w-7 text-blue-600" />
-            <span className="text-2xl font-bold text-gray-900">
-              Lost<span className="text-blue-600">&amp;</span>Found
-            </span>
-          </div>
-          <CardTitle className="text-xl">Se connecter</CardTitle>
-          <CardDescription>Content de vous revoir</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Adresse email</Label>
-              <Input id="email" type="email" placeholder="ahmed@example.com" autoComplete="email" {...register("email")} className={errors.email ? "border-destructive" : ""} />
-              {errors.email && <p className="text-xs text-destructive" role="alert">{errors.email.message}</p>}
+    <main className="min-h-screen flex">
+      <AuthBrandPanel
+        title="Bon retour parmi nous !"
+        subtitle="Connectez-vous pour retrouver vos objets et gérer vos annonces."
+        bullets={[
+          "Accédez à toutes vos annonces",
+          "Suivez l'état de vos déclarations",
+          "Contactez d'autres utilisateurs",
+        ]}
+      />
+
+      <div className="flex flex-1 items-center justify-center p-6 bg-gray-50/50">
+        <div className="w-full max-w-md">
+          <MobileLogo />
+
+          <AuthFormCard>
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Se connecter</h1>
+              <p className="text-sm text-muted-foreground mt-1">Content de vous revoir 👋</p>
             </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Mot de passe</Label>
-                <Link href="/auth/forgot-password" className="text-xs text-blue-600 hover:underline">Mot de passe oublié ?</Link>
-              </div>
-              <div className="relative">
-                <Input id="password" type={showPwd ? "text" : "password"} placeholder="••••••••" autoComplete="current-password" {...register("password")} className={errors.password ? "border-destructive pr-10" : "pr-10"} />
-                <button type="button" onClick={() => setShowPwd((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {errors.password && <p className="text-xs text-destructive" role="alert">{errors.password.message}</p>}
-            </div>
-            <Button type="submit" size="lg" disabled={isLoading} className="w-full mt-2">
-              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Connexion en cours…</> : "Se connecter"}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="justify-center text-sm text-muted-foreground">
-          Pas encore de compte ?&nbsp;
-          <Link href="/auth/register" className="text-blue-600 hover:underline font-medium">Créer un compte</Link>
-        </CardFooter>
-      </Card>
+
+            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+              <FormField label="Adresse email" htmlFor="email" error={errors.email?.message}>
+                <Input
+                  id="email" type="email" placeholder="ahmed@example.com"
+                  autoComplete="email" {...register("email")}
+                  className={errors.email ? "border-destructive" : ""}
+                />
+              </FormField>
+
+              <FormField
+                label="Mot de passe" htmlFor="password" error={errors.password?.message}
+                labelRight={
+                  <Link href="/auth/forgot-password" className="text-xs text-blue-600 hover:underline font-medium">
+                    Mot de passe oublié ?
+                  </Link>
+                }
+              >
+                <PasswordInput
+                  id="password" placeholder="••••••••"
+                  autoComplete="current-password"
+                  show={showPwd} onToggle={() => setShowPwd((v) => !v)}
+                  hasError={!!errors.password}
+                  {...register("password")}
+                />
+              </FormField>
+
+              <Button type="submit" size="lg" disabled={isLoading} className="w-full mt-1">
+                {isLoading
+                  ? <><Loader2 className="h-4 w-4 animate-spin" />Connexion…</>
+                  : "Se connecter"}
+              </Button>
+            </form>
+          </AuthFormCard>
+
+          <p className="text-center text-sm text-muted-foreground mt-5">
+            Pas encore de compte ?{" "}
+            <Link href="/auth/register" className="text-blue-600 hover:underline font-semibold">
+              Créer un compte
+            </Link>
+          </p>
+        </div>
+      </div>
     </main>
   );
 }
 
 export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
-  );
+  return <Suspense><LoginForm /></Suspense>;
 }

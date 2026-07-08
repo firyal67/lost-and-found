@@ -39,7 +39,19 @@ async function apiFetch(endpoint, options = {}) {
     headers,
   });
 
-  const data = await res.json();
+  // Guard: parse JSON safely — a non-running backend can return HTML
+  let data;
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    data = await res.json();
+  } else {
+    const text = await res.text();
+    throw new Error(
+      res.status >= 500
+        ? "Le serveur est inaccessible. Veuillez réessayer dans quelques instants."
+        : text || "Une erreur est survenue."
+    );
+  }
 
   if (res.ok) return data;
 

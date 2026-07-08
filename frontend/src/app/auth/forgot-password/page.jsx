@@ -6,33 +6,28 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { MapPin, Loader2, Mail, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { authApi } from "@/lib/api/auth.api";
+import {
+  AuthBrandPanel,
+  MobileLogo,
+  FormField,
+  AuthFormCard,
+} from "@/components/auth/AuthShared";
 
 const schema = z.object({
   email: z.string().email("Email invalide").trim().toLowerCase(),
 });
 
 export default function ForgotPasswordPage() {
-  const [submitted, setSubmitted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [submitted,  setSubmitted]  = useState(false);
+  const [isLoading,  setIsLoading]  = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(schema),
+  });
 
   const onSubmit = async (values) => {
     setIsLoading(true);
@@ -47,86 +42,82 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <MapPin className="h-7 w-7 text-blue-600" />
-            <span className="text-2xl font-bold text-gray-900">
-              Lost<span className="text-blue-600">&amp;</span>Found
-            </span>
-          </div>
-          <CardTitle className="text-xl">Mot de passe oublié</CardTitle>
-          <CardDescription>
-            Entrez votre email pour recevoir un lien de réinitialisation
-          </CardDescription>
-        </CardHeader>
+    <main className="min-h-screen flex">
+      <AuthBrandPanel
+        title="Récupérez votre accès"
+        subtitle="Pas d'inquiétude — entrez votre email et nous vous enverrons un lien pour créer un nouveau mot de passe."
+        bullets={[
+          "Lien sécurisé et temporaire",
+          "Valable 1 heure",
+          "Aucune donnée modifiée sans confirmation",
+        ]}
+      />
 
-        <CardContent>
-          {submitted ? (
-            <div className="flex flex-col items-center gap-4 py-4 text-center">
-              <Mail className="h-12 w-12 text-blue-500" />
-              <p className="text-gray-700 font-medium">Email envoyé !</p>
-              <p className="text-sm text-muted-foreground">
-                Si un compte est associé à cette adresse, vous recevrez un lien
-                de réinitialisation dans quelques minutes. Pensez à vérifier
-                vos spams.
-              </p>
-              <Button
-                variant="outline"
-                className="w-full mt-2"
-                asChild
-              >
-                <Link href="/auth/login">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Retour à la connexion
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Adresse email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="ahmed@example.com"
-                  autoComplete="email"
-                  {...register("email")}
-                  className={errors.email ? "border-destructive" : ""}
-                />
-                {errors.email && (
-                  <p className="text-xs text-destructive" role="alert">
-                    {errors.email.message}
+      <div className="flex flex-1 items-center justify-center p-6 bg-gray-50/50">
+        <div className="w-full max-w-md">
+          <MobileLogo />
+
+          <AuthFormCard>
+            {submitted ? (
+              /* ── Success state ── */
+              <div className="flex flex-col items-center text-center gap-5 py-4">
+                <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50">
+                  <Mail className="h-8 w-8 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Email envoyé !</h2>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto">
+                    Si un compte est associé à cette adresse, vous recevrez un lien
+                    de réinitialisation dans quelques minutes.{" "}
+                    <span className="text-gray-500">Vérifiez aussi vos spams.</span>
                   </p>
-                )}
+                </div>
+                <Button variant="outline" size="lg" className="w-full" asChild>
+                  <Link href="/auth/login">
+                    <ArrowLeft className="h-4 w-4" />
+                    Retour à la connexion
+                  </Link>
+                </Button>
               </div>
-              <Button type="submit" size="lg" disabled={isLoading} className="w-full mt-2">
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Envoi en cours…
-                  </>
-                ) : (
-                  "Envoyer le lien"
-                )}
-              </Button>
-            </form>
-          )}
-        </CardContent>
+            ) : (
+              /* ── Form ── */
+              <>
+                <div className="mb-8">
+                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Mot de passe oublié</h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Entrez votre email pour recevoir un lien de réinitialisation.
+                  </p>
+                </div>
 
-        {!submitted && (
-          <CardFooter className="justify-center text-sm text-muted-foreground">
-            <Link
-              href="/auth/login"
-              className="flex items-center gap-1 text-blue-600 hover:underline font-medium"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              Retour à la connexion
-            </Link>
-          </CardFooter>
-        )}
-      </Card>
+                <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+                  <FormField label="Adresse email" htmlFor="email" error={errors.email?.message}>
+                    <Input
+                      id="email" type="email" placeholder="ahmed@example.com"
+                      autoComplete="email" {...register("email")}
+                      className={errors.email ? "border-destructive" : ""}
+                    />
+                  </FormField>
+
+                  <Button type="submit" size="lg" disabled={isLoading} className="w-full mt-1">
+                    {isLoading
+                      ? <><Loader2 className="h-4 w-4 animate-spin" />Envoi…</>
+                      : "Envoyer le lien"}
+                  </Button>
+                </form>
+              </>
+            )}
+          </AuthFormCard>
+
+          {!submitted && (
+            <p className="text-center text-sm text-muted-foreground mt-5">
+              <Link href="/auth/login" className="inline-flex items-center gap-1 text-blue-600 hover:underline font-semibold">
+                <ArrowLeft className="h-3 w-3" />
+                Retour à la connexion
+              </Link>
+            </p>
+          )}
+        </div>
+      </div>
     </main>
   );
 }

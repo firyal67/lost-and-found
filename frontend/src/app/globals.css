@@ -2,30 +2,125 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Google Font: Inter (loaded via next/font in layout.jsx) ─── */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    /* ── Neutral palette ── */
+    --background:        0 0% 98%;
+    --foreground:        222 25% 10%;
+
+    /* ── Card ── */
+    --card:              0 0% 100%;
+    --card-foreground:   222 25% 10%;
+
+    /* ── Brand blue ── */
+    --primary:           221 90% 54%;
+    --primary-foreground:0 0% 100%;
+
+    /* ── Subtle surfaces ── */
+    --secondary:         220 20% 96%;
+    --secondary-foreground: 222 25% 20%;
+
+    --muted:             220 18% 94%;
+    --muted-foreground:  218 14% 48%;
+
+    --accent:            220 18% 94%;
+    --accent-foreground: 222 25% 20%;
+
+    /* ── State colors ── */
+    --destructive:       0 80% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success:           145 63% 42%;
+    --success-foreground:0 0% 100%;
+
+    --warning:           38 95% 50%;
+    --warning-foreground:0 0% 100%;
+
+    /* ── Chrome ── */
+    --border:            220 16% 90%;
+    --input:             220 16% 90%;
+    --ring:              221 90% 54%;
+    --radius:            0.625rem;
+
+    /* ── Shadows ── */
+    --shadow-sm:         0 1px 3px 0 rgb(0 0 0 / .07), 0 1px 2px -1px rgb(0 0 0 / .06);
+    --shadow-md:         0 4px 12px -1px rgb(0 0 0 / .08), 0 2px 6px -2px rgb(0 0 0 / .06);
+    --shadow-lg:         0 10px 30px -5px rgb(0 0 0 / .10), 0 4px 10px -5px rgb(0 0 0 / .06);
+    --shadow-card:       0 0 0 1px rgb(0 0 0 / .04), 0 4px 16px -2px rgb(0 0 0 / .08);
   }
 }
 
 @layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    line-height: 1.6;
+  }
+
+  /* ── Headings ── */
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+  }
+
+  /* ── Focus ring ── */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ── Scrollbar (Chrome / Edge) ── */
+  ::-webkit-scrollbar        { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: hsl(var(--border)); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / .6); }
+}
+
+/* ── Utility: glass card surface ── */
+@layer utilities {
+  .glass {
+    background: hsl(var(--card) / .85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border));
+  }
+
+  .gradient-brand {
+    background: linear-gradient(135deg, hsl(221 90% 54%), hsl(250 85% 58%));
+  }
+
+  .gradient-hero {
+    background: linear-gradient(
+      145deg,
+      hsl(221 90% 54% / .06) 0%,
+      hsl(250 85% 58% / .08) 50%,
+      hsl(221 90% 54% / .04) 100%
+    );
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(250 85% 58%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
 }

@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { authApi } from "@/lib/api/auth.api";
+import { refreshAccessToken } from "@/lib/api-client";
 
 // ─── Thunks ────────────────────────────────────────────────────────────────
 
@@ -38,16 +39,28 @@ export const logoutUser = createAsyncThunk(
 );
 
 /**
- * Hydrate l'état auth au démarrage de l'app via GET /auth/me.
- * Utilise le cookie refresh token pour obtenir un access token si nécessaire.
+ * Hydrate l'état auth au démarrage de l'app.
+ * 1. Appelle POST /auth/refresh pour obtenir un access token frais via le cookie refresh token.
+ * 2. Puis GET /auth/me avec ce token pour récupérer le profil utilisateur.
  */
 export const hydrateAuth = createAsyncThunk(
   "auth/hydrate",
   async (_, { rejectWithValue }) => {
     try {
-      // On tente d'abord sans token — si le cookie refresh est valide,
-      // refreshAccessToken sera appelé automatiquement par api-client
-      return await authApi.getMe(null);
+      // Étape 1 — obtenir un access token frais via le cookie refresh token
+      const refreshData = await refreshAccessToken();
+      const accessToken = refreshData; // refreshAccessToken() retourne directement le token string
+
+      // Étape 2 — récupérer le profil utilisateur avec ce token
+      const meData = await authApi.getMe(accessToken);
+
+      return {
+        success: true,
+        data: {
+          user: meData.data.user,
+          accessToken,
+        },
+      };
     } catch {
       return rejectWithValue(null);
     }
@@ -144,7 +157,7 @@ const authSlice = createSlice({
       .addCase(hydrateAuth.fulfilled, (state, action) => {
         state.isHydrating = false;
         state.user = action.payload.data.user;
-        // Le token sera stocké en mémoire via un refresh automatique si besoin
+        state.accessToken = action.payload.data.accessToken ?? null;
       })
       .addCase(hydrateAuth.rejected, (state) => {
         state.isHydrating = false;

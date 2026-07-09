@@ -11,6 +11,7 @@ import {
   Loader2, Search, Package, CheckCircle2,
   ChevronLeft, ChevronRight, AlertTriangle,
   MapPin, Phone, Mail, MessageSquare, Check,
+  ImagePlus, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,6 +155,7 @@ export default function NewPostPage() {
   const { user, accessToken, isHydrating } = useAppSelector((s) => s.auth);
   const { isLoading, error, fieldErrors, createdPost } = useAppSelector((s) => s.posts);
   const [step, setStep] = useState(0);
+  const [photo, setPhoto] = useState(null); // base64 data-URI or null
   const TOTAL_STEPS = 4;
 
   const { register, handleSubmit, trigger, watch, setValue, setError, formState: { errors } } =
@@ -206,6 +208,7 @@ export default function NewPostPage() {
         date: values.date,
         maskedDocNumber: values.maskedDocNumber || null,
         reward: values.reward ? Number(values.reward) : null,
+        photo: photo || null,
         contactPreferences: {
           phone: values.contactPhone, email: values.contactEmail, platform: values.contactPlatform,
         },
@@ -417,6 +420,70 @@ export default function NewPostPage() {
                     <p className="text-xs text-amber-800 leading-relaxed">
                       <strong className="font-semibold">Confidentialité :</strong> Ne publiez jamais un numéro de document complet
                       (CIN, passeport, carte bancaire). Utilisez uniquement les 4 derniers chiffres au format <code className="font-mono bg-amber-100 px-1 rounded">****1234</code>.
+                    </p>
+                  </div>
+
+                  {/* ── Photo (optionnelle) ── */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                      Photo
+                      <span className="text-slate-400 font-normal text-xs ml-1">(optionnel)</span>
+                    </Label>
+
+                    {photo ? (
+                      /* ── Prévisualisation ── */
+                      <div className="relative w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                        <img
+                          src={photo}
+                          alt="Aperçu de la photo"
+                          className="w-full max-h-64 object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPhoto(null)}
+                          className="absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-full bg-slate-900/60 hover:bg-slate-900/80 text-white transition-colors"
+                          aria-label="Supprimer la photo"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      /* ── Zone de dépôt / sélection ── */
+                      <label
+                        htmlFor="photo-upload"
+                        className="flex flex-col items-center justify-center gap-3 w-full h-36 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 hover:bg-slate-100/60 hover:border-blue-300 cursor-pointer transition-all group"
+                      >
+                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-blue-50 transition-colors">
+                          <ImagePlus className="h-5 w-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-slate-600 group-hover:text-slate-800">
+                            Cliquez pour ajouter une photo
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">JPEG, PNG, WebP — max 5 Mo</p>
+                        </div>
+                        <input
+                          id="photo-upload"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 5 * 1024 * 1024) {
+                              toast.error("L'image ne doit pas dépasser 5 Mo");
+                              e.target.value = "";
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setPhoto(ev.target.result);
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                    )}
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Une photo aide à identifier l'objet plus rapidement.
                     </p>
                   </div>
                 </div>

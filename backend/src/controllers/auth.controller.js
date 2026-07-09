@@ -150,10 +150,9 @@ const refresh = async (req, res, next) => {
     }
 
     const newRefreshToken = generateRefreshToken(user._id);
-    await User.findByIdAndUpdate(user._id, {
-      $pull: { refreshTokens: token },
-      $push: { refreshTokens: newRefreshToken },
-    });
+    // MongoDB 4.2+ interdit $pull et $push sur le même champ dans une seule opération
+    await User.findByIdAndUpdate(user._id, { $pull: { refreshTokens: token } });
+    await User.findByIdAndUpdate(user._id, { $push: { refreshTokens: newRefreshToken } });
 
     const accessToken = generateAccessToken(user._id);
     setRefreshCookie(res, newRefreshToken);

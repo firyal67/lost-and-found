@@ -67,6 +67,22 @@ const createPostValidator = [
     .matches(/^\*{4}\d{4}$/)
     .withMessage('Le numéro masqué doit être au format ****XXXX (ex: ****1234)'),
 
+  // ── Photo (optionnelle, base64) ───────────────────────────────────────────
+  body('photo')
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (!value) return true;
+      // Accepte uniquement les data-URI image/* en base64
+      if (!/^data:image\/(jpeg|jpg|png|webp|gif);base64,/.test(value)) {
+        throw new Error('Format d\'image invalide. Formats acceptés : JPEG, PNG, WebP, GIF');
+      }
+      // Limite à ~5 MB (base64 ~ 4/3 taille originale, 5MB * 4/3 ≈ 6.9M chars)
+      if (value.length > 7_000_000) {
+        throw new Error('L\'image ne doit pas dépasser 5 Mo');
+      }
+      return true;
+    }),
+
   // ── Récompense (optionnelle, uniquement pour lost) ─────────────────────────
   body('reward')
     .optional({ checkFalsy: true })

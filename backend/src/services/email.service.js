@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const logger = require('../config/logger');
 
 const createTransporter = async () => {
   if (process.env.SMTP_HOST) {
@@ -23,7 +24,7 @@ const createTransporter = async () => {
       pass: testAccount.pass,
     },
   });
-  console.log(`Ethereal account: ${testAccount.user}`);
+  logger.info({ etherealUser: testAccount.user }, 'Ethereal test account created');
   return transporter;
 };
 
@@ -56,7 +57,7 @@ const sendVerificationEmail = async ({ to, name, token }) => {
 
   const previewUrl = nodemailer.getTestMessageUrl(info) || null;
   if (previewUrl) {
-    console.log(`Email preview: ${previewUrl}`);
+    logger.info({ previewUrl }, 'Email preview');
   }
 
   return { info, previewUrl };
@@ -91,7 +92,7 @@ const sendPasswordResetEmail = async ({ to, name, token }) => {
 
   const previewUrl = nodemailer.getTestMessageUrl(info) || null;
   if (previewUrl) {
-    console.log(`Password reset email preview: ${previewUrl}`);
+    logger.info({ previewUrl }, 'Password reset email preview');
   }
 
   return { info, previewUrl };

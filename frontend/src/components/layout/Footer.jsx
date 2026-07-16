@@ -1,62 +1,88 @@
 import Link from "next/link";
-import { MapPin } from "lucide-react";
+import { Search, Heart } from "lucide-react";
 
 export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-border/60 bg-white mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-8">
+    <footer
+      style={{
+        borderTop: "1px solid rgba(255,255,255,0.07)",
+        background: "#0d0f14",
+        marginTop: "auto",
+      }}
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
 
-          {/* ── Brand ── */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center justify-center w-7 h-7 rounded-md bg-blue-600 shadow-sm">
-                <MapPin className="h-4 w-4 text-white" strokeWidth={2.5} />
+        {/* Top row */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-10">
+
+          {/* Brand */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div
+                className="flex items-center justify-center w-8 h-8 rounded-lg"
+                style={{
+                  background: "linear-gradient(135deg, #4f8ef7, #3a7ae4)",
+                  boxShadow: "0 0 14px rgba(79,142,247,0.22)",
+                }}
+              >
+                <Search className="h-4 w-4 text-white" strokeWidth={2.5} />
               </div>
-              <span className="font-bold text-gray-900 tracking-tight">
-                Lost<span className="text-blue-600">&amp;</span>Found
+              <span
+                className="font-sans font-[700] text-[18px] tracking-[-0.02em]"
+                style={{ color: "#f0f2f8" }}
+              >
+                Lost<span style={{ color: "#4f8ef7" }}>&amp;</span>Found
               </span>
-              <span className="text-xs font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 leading-none">
+              <span
+                className="text-[11px] font-[600] tracking-[0.07em] uppercase rounded-full px-2.5 py-0.5 leading-none"
+                style={{
+                  color: "#4f8ef7",
+                  background: "rgba(79,142,247,0.10)",
+                  border: "1px solid rgba(79,142,247,0.20)",
+                }}
+              >
                 Tunisie
               </span>
             </div>
-            <p className="text-xs text-gray-400 max-w-[220px]">
-              Retrouvez vos objets perdus ou aidez quelqu'un à retrouver les siens.
+            <p className="text-[14px] leading-[1.65]" style={{ color: "#6b7494", maxWidth: "300px" }}>
+              Retrouvez vos objets perdus ou aidez quelqu&apos;un à retrouver les siens.
+              Une plateforme tunisienne gratuite et solidaire.
             </p>
           </div>
 
-          {/* ── Links ── */}
-          <nav className="flex items-center gap-6 text-sm">
-            <Link
-              href="/posts"
-              className="text-gray-500 hover:text-gray-900 font-medium transition-colors"
-            >
-              Annonces
-            </Link>
-            <Link
-              href="/auth/login"
-              className="text-gray-500 hover:text-gray-900 font-medium transition-colors"
-            >
-              Connexion
-            </Link>
-            <Link
-              href="/auth/register"
-              className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
-            >
-              S'inscrire
-            </Link>
+          {/* Nav links */}
+          <nav className="flex items-center gap-8">
+            {[
+              { href: "/posts",          label: "Annonces" },
+              { href: "/auth/login",     label: "Connexion" },
+              { href: "/auth/register",  label: "S'inscrire", accent: true },
+            ].map(({ href, label, accent }) => (
+              <Link
+                key={href}
+                href={href}
+                className="text-[14px] font-[500] transition-colors duration-150"
+                style={{ color: accent ? "#4f8ef7" : "#6b7494" }}
+                onMouseEnter={(e) => e.currentTarget.style.color = accent ? "#7aabfa" : "#b8bdd0"}
+                onMouseLeave={(e) => e.currentTarget.style.color = accent ? "#4f8ef7" : "#6b7494"}
+              >
+                {label}
+              </Link>
+            ))}
           </nav>
         </div>
 
-        {/* ── Divider + copyright ── */}
-        <div className="mt-8 pt-6 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-gray-400">
-            © {year} Lost&amp;Found Tunisie. Tous droits réservés.
+        {/* Divider */}
+        <div
+          className="mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <p className="text-[12px]" style={{ color: "#3d4460" }}>
+            &copy; {year} Lost&amp;Found Tunisie. Tous droits réservés.
           </p>
-          <p className="text-xs text-gray-300">
-            Fait avec ♥ en Tunisie
+          <p className="text-[12px] flex items-center gap-1.5" style={{ color: "#3d4460" }}>
+            Fait avec <Heart className="h-3 w-3" style={{ color: "#f87171" }} /> en Tunisie
           </p>
         </div>
       </div>

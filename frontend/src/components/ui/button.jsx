@@ -1,55 +1,86 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva } from "class-variance-authority";
-import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  /* base */
-  `inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold
-   transition-all duration-150 focus-visible:outline-none focus-visible:ring-2
-   focus-visible:ring-ring focus-visible:ring-offset-2
-   disabled:pointer-events-none disabled:opacity-50 select-none`,
+  [
+    // base layout
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap",
+    // typography
+    "font-sans font-[500] tracking-[-0.005em]",
+    // interaction
+    "transition-all duration-150 cursor-pointer select-none",
+    // focus ring
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f8ef7] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d0f14]",
+    // disabled
+    "disabled:pointer-events-none disabled:opacity-40",
+  ].join(" "),
   {
     variants: {
       variant: {
-        /* ── Primary: gradient blue → indigo ── */
-        default:
-          "bg-blue-600 text-white shadow-sm hover:bg-blue-700 active:scale-[.98]",
+        /* ── Primary ─────────────────────────────────────── */
+        default: [
+          "bg-[#4f8ef7] text-white rounded-lg",
+          "shadow-[0_1px_3px_rgba(0,0,0,0.35)]",
+          "hover:bg-[#7aabfa] hover:shadow-[0_0_20px_rgba(79,142,247,0.30)]",
+          "active:scale-[.97] active:bg-[#3a7ae4]",
+        ].join(" "),
 
-        /* ── Destructive ── */
-        destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 active:scale-[.98]",
+        /* ── Secondary — outlined ────────────────────────── */
+        secondary: [
+          "bg-transparent text-[#b8bdd0] rounded-lg",
+          "border border-[rgba(255,255,255,0.12)]",
+          "hover:bg-[#1a1e28] hover:text-[#f0f2f8] hover:border-[rgba(255,255,255,0.20)]",
+          "active:scale-[.97]",
+        ].join(" "),
 
-        /* ── Outline ── */
-        outline:
-          "border border-border bg-white text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 active:scale-[.98]",
+        /* ── Tertiary — ghost with subtle fill ───────────── */
+        tertiary: [
+          "bg-transparent text-[#b8bdd0] rounded-lg",
+          "hover:bg-[#1a1e28] hover:text-[#f0f2f8]",
+          "active:scale-[.97]",
+        ].join(" "),
 
-        /* ── Secondary / muted fill ── */
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/70 active:scale-[.98]",
+        /* ── Destructive ─────────────────────────────────── */
+        destructive: [
+          "bg-[#f87171] text-white rounded-lg",
+          "hover:bg-[#fca5a5] hover:shadow-[0_0_16px_rgba(248,113,113,0.25)]",
+          "active:scale-[.97]",
+        ].join(" "),
 
-        /* ── Ghost ── */
-        ghost:
-          "text-gray-600 hover:bg-gray-100 hover:text-gray-900 active:scale-[.98]",
+        /* ── Ghost ───────────────────────────────────────── */
+        ghost: [
+          "bg-transparent text-[#6b7494] rounded-lg",
+          "hover:bg-[#1a1e28] hover:text-[#b8bdd0]",
+          "active:scale-[.97]",
+        ].join(" "),
 
-        /* ── Link ── */
-        link: "text-blue-600 underline-offset-4 hover:underline p-0 h-auto font-medium",
+        /* ── Link ────────────────────────────────────────── */
+        link: [
+          "bg-transparent text-[#7aabfa] p-0 h-auto",
+          "underline-offset-4 hover:underline hover:text-[#a5c7fc]",
+          "font-[400]",
+        ].join(" "),
 
-        /* ── Success ── */
-        success:
-          "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:scale-[.98]",
+        /* ── Outline (legacy alias for secondary) ────────── */
+        outline: [
+          "bg-transparent text-[#b8bdd0] rounded-lg",
+          "border border-[rgba(255,255,255,0.12)]",
+          "hover:bg-[#1a1e28] hover:text-[#f0f2f8] hover:border-[rgba(255,255,255,0.20)]",
+          "active:scale-[.97]",
+        ].join(" "),
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm:      "h-8 px-3 text-xs rounded-md",
-        lg:      "h-11 px-6 text-base",
-        xl:      "h-12 px-8 text-base",
-        icon:    "h-9 w-9 rounded-lg",
-        "icon-sm": "h-7 w-7 rounded-md",
+        default: "h-[38px] px-4 py-2 text-[13px] rounded-lg",
+        sm:      "h-[32px] px-3 py-1.5 text-[12px] rounded-md",
+        lg:      "h-[44px] px-6 py-2.5 text-[14px] rounded-lg",
+        xl:      "h-[50px] px-8 py-3 text-[15px] rounded-lg",
+        icon:    "h-[38px] w-[38px] p-0 rounded-lg",
+        "icon-sm":"h-[32px] w-[32px] p-0 rounded-md",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
-  }
+  },
 );
 
 const Button = React.forwardRef(
@@ -57,12 +88,12 @@ const Button = React.forwardRef(
     const Comp = asChild ? Slot : "button";
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={buttonVariants({ variant, size, className })}
         ref={ref}
         {...props}
       />
     );
-  }
+  },
 );
 Button.displayName = "Button";
 

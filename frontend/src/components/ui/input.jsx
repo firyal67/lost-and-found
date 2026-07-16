@@ -1,22 +1,32 @@
 import * as React from "react";
-import { cn } from "@/lib/utils";
 
 const Input = React.forwardRef(({ className, type, ...props }, ref) => (
   <input
     type={type}
-    className={cn(
-      /* base */
-      `flex h-10 w-full rounded-lg border border-border bg-white px-3.5 py-2
-       text-sm text-foreground shadow-sm
-       placeholder:text-muted-foreground/60
-       transition-colors duration-150
-       /* focus */
-       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:border-blue-400
-       /* disabled */
-       disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted`,
-      className
-    )}
     ref={ref}
+    className={[
+      // layout
+      "flex h-[42px] w-full",
+      // shape
+      "rounded-md border border-[rgba(255,255,255,0.08)]",
+      // color
+      "bg-[#161921] text-[#f0f2f8]",
+      // spacing
+      "px-3 py-2",
+      // typography
+      "font-sans text-[14px] leading-normal",
+      // placeholder
+      "placeholder:text-[#6b7494]",
+      // transitions
+      "transition-all duration-150",
+      // hover
+      "hover:border-[rgba(255,255,255,0.16)]",
+      // focus
+      "focus-visible:outline-none focus-visible:border-[#4f8ef7] focus-visible:ring-2 focus-visible:ring-[rgba(79,142,247,0.20)] focus-visible:ring-offset-0",
+      // disabled
+      "disabled:cursor-not-allowed disabled:opacity-40",
+      className ?? "",
+    ].join(" ")}
     {...props}
   />
 ));

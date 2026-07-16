@@ -85,7 +85,16 @@ const getPosts = async (req, res, next) => {
       limit = 20,
     } = req.query;
 
-    const filter = { status: 'active' }; // afficher uniquement les annonces actives
+    const filter = {};
+
+    // Default: show only active posts unless a specific status is requested
+    if (req.query.status === 'resolved') {
+      filter.status = 'resolved';
+    } else if (req.query.status === 'all') {
+      // no status filter — show everything (admin use)
+    } else {
+      filter.status = 'active'; // default
+    }
 
     if (type) filter.type = type;
     if (objectType) filter.objectType = objectType;
@@ -110,18 +119,21 @@ const getPosts = async (req, res, next) => {
       Post.countDocuments(filter),
     ]);
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        posts,
-        pagination: {
-          total,
-          page: Number(page),
-          limit: Number(limit),
-          pages: Math.ceil(total / Number(limit)),
+    return res
+      .set('Cache-Control', 'public, max-age=60, s-maxage=120')
+      .status(200)
+      .json({
+        success: true,
+        data: {
+          posts,
+          pagination: {
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            pages: Math.ceil(total / Number(limit)),
+          },
         },
-      },
-    });
+      });
   } catch (error) {
     next(error);
   }
@@ -159,4 +171,83 @@ const getPostById = async (req, res, next) => {
   }
 };
 
-module.exports = { createPost, getPosts, getPostById };
+/**
+ * DELETE /api/posts/:id
+ * Supprime une annonce. Réservé à l'auteur ou à un admin.
+ * Requiert authenticateJWT.
+ */
+const deletePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const post = await Post.findById(id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
+    }
+
+    const isOwner = post.author.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Accès refusé.' });
+    }
+
+    await post.deleteOne();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Annonce supprimée avec succès.',
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'ID invalide.' });
+    }
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/posts/:id/resolve
+ * Clôture une annonce en la marquant comme résolue.
+ * Réservé à l'auteur ou à un admin.
+ * Requiert authenticateJWT.
+ */
+const resolvePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const post = await Post.findById(id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
+    }
+
+    const isOwner = post.author.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Accès refusé.' });
+    }
+
+    if (post.status === 'resolved') {
+      return res.status(409).json({ success: false, message: 'Cette annonce est déjà clôturée.' });
+    }
+
+    post.status = 'resolved';
+    // resolvedAt est défini automatiquement par le hook pre('save') dans Post.model.js
+    await post.save();
+    await post.populate('author', 'name email');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Annonce clôturée avec succès.',
+      data: { post },
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'ID invalide.' });
+    }
+    next(error);
+  }
+};
+
+module.exports = { createPost, getPosts, getPostById, deletePost, resolvePost };

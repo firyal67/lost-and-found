@@ -1,0 +1,3 @@
+# Root-level — concurrently dev tool only
+node_modules/
+package-lock.json

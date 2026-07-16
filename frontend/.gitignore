@@ -1,6 +1,10 @@
 node_modules/
 /.next/
 /out/
-.env*.local
+.env
+.env.*
 *.tsbuildinfo
 next-env.d.ts
+coverage/
+cypress/videos/
+cypress/screenshots/

@@ -46,4 +46,29 @@ export const postsApi = {
       body: JSON.stringify({ postId, message }),
     });
   },
+  /**
+   * DELETE /api/posts/:id
+   * Supprime une annonce (owner ou admin).
+   * @param {string} id    - ID de l'annonce
+   * @param {string} token - Access token JWT
+   */
+  deletePost: async (id, token) => {
+    return apiFetch(`/posts/${id}`, {
+      method: "DELETE",
+      token,
+    });
+  },
+
+  /**
+   * PATCH /api/posts/:id/resolve
+   * Clôture une annonce résolue (owner ou admin).
+   * @param {string} id    - ID de l'annonce
+   * @param {string} token - Access token JWT
+   */
+  resolvePost: async (id, token) => {
+    return apiFetch(`/posts/${id}/resolve`, {
+      method: "PATCH",
+      token,
+    });
+  },
 };

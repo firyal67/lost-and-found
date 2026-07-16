@@ -13,11 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { loginUser, clearErrors } from "@/store/slices/authSlice";
 import {
-  AuthBrandPanel,
-  MobileLogo,
-  FormField,
-  PasswordInput,
-  AuthFormCard,
+  AuthBrandPanel, MobileLogo, FormField, PasswordInput, AuthFormCard,
 } from "@/components/auth/AuthShared";
 
 const schema = z.object({
@@ -32,9 +28,12 @@ function LoginForm() {
   const { isLoading, error, fieldErrors, user } = useAppSelector((s) => s.auth);
   const [showPwd, setShowPwd] = useState(false);
 
-  const { register, handleSubmit, setError, formState: { errors } } = useForm({
-    resolver: zodResolver(schema),
-  });
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors },
+  } = useForm({ resolver: zodResolver(schema) });
 
   useEffect(() => {
     if (user) {
@@ -58,7 +57,10 @@ function LoginForm() {
     dispatch(loginUser({ email: values.email, password: values.password }));
 
   return (
-    <main className="min-h-screen flex">
+    <main
+      className="min-h-screen flex"
+      style={{ background: "#0d0f14" }}
+    >
       <AuthBrandPanel
         title="Bon retour parmi nous !"
         subtitle="Connectez-vous pour retrouver vos objets et gérer vos annonces."
@@ -69,53 +71,87 @@ function LoginForm() {
         ]}
       />
 
-      <div className="flex flex-1 items-center justify-center p-6 bg-gray-50/50">
-        <div className="w-full max-w-md">
+      {/* Right — form */}
+      <div className="flex flex-1 items-center justify-center p-6 sm:p-10" style={{ background: "#0d0f14" }}>
+        <div className="w-full max-w-[420px]">
           <MobileLogo />
 
           <AuthFormCard>
+            {/* Heading */}
             <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Se connecter</h1>
-              <p className="text-sm text-muted-foreground mt-1">Content de vous revoir 👋</p>
+              <h1
+                className="font-sans font-[700] text-[24px] tracking-[-0.02em]"
+                style={{ color: "#f0f2f8" }}
+              >
+                Se connecter
+              </h1>
+              <p className="text-[14px] mt-1" style={{ color: "#6b7494" }}>
+                Content de vous revoir
+              </p>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
               <FormField label="Adresse email" htmlFor="email" error={errors.email?.message}>
                 <Input
-                  id="email" type="email" placeholder="ahmed@example.com"
-                  autoComplete="email" {...register("email")}
-                  className={errors.email ? "border-destructive" : ""}
+                  id="email"
+                  type="email"
+                  placeholder="ahmed@example.com"
+                  autoComplete="email"
+                  {...register("email")}
+                  className={errors.email ? "border-[#f87171]" : ""}
                 />
               </FormField>
 
               <FormField
-                label="Mot de passe" htmlFor="password" error={errors.password?.message}
+                label="Mot de passe"
+                htmlFor="password"
+                error={errors.password?.message}
                 labelRight={
-                  <Link href="/auth/forgot-password" className="text-xs text-blue-600 hover:underline font-medium">
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-[12px] font-[500] transition-colors"
+                    style={{ color: "#4f8ef7" }}
+                  >
                     Mot de passe oublié ?
                   </Link>
                 }
               >
                 <PasswordInput
-                  id="password" placeholder="••••••••"
+                  id="password"
+                  placeholder="••••••••"
                   autoComplete="current-password"
-                  show={showPwd} onToggle={() => setShowPwd((v) => !v)}
+                  show={showPwd}
+                  onToggle={() => setShowPwd((v) => !v)}
                   hasError={!!errors.password}
                   {...register("password")}
                 />
               </FormField>
 
-              <Button type="submit" size="lg" disabled={isLoading} className="w-full mt-1">
-                {isLoading
-                  ? <><Loader2 className="h-4 w-4 animate-spin" />Connexion…</>
-                  : "Se connecter"}
+              <Button
+                type="submit"
+                size="lg"
+                disabled={isLoading}
+                className="w-full mt-1"
+              >
+                {isLoading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Connexion…</>
+                ) : (
+                  "Se connecter"
+                )}
               </Button>
             </form>
           </AuthFormCard>
 
-          <p className="text-center text-sm text-muted-foreground mt-5">
+          <p
+            className="text-center text-[13px] mt-5"
+            style={{ color: "#6b7494" }}
+          >
             Pas encore de compte ?{" "}
-            <Link href="/auth/register" className="text-blue-600 hover:underline font-semibold">
+            <Link
+              href="/auth/register"
+              className="font-[500] transition-colors"
+              style={{ color: "#4f8ef7" }}
+            >
               Créer un compte
             </Link>
           </p>

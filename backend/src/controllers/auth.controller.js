@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const User = require('../models/User.model');
+const logger = require('../config/logger');
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -53,15 +54,17 @@ const register = async (req, res, next) => {
     try {
       const result = await sendVerificationEmail({ to: user.email, name: user.name, token: verificationToken });
       emailPreviewUrl = result.previewUrl || null;
-      if (emailPreviewUrl) console.log(`[DEV] Email preview: ${emailPreviewUrl}`);
+      if (emailPreviewUrl) logger.info({ previewUrl: emailPreviewUrl }, 'Email preview available');
     } catch (err) {
-      console.error('Failed to send verification email:', err.message);
+      logger.error({ err }, 'Failed to send verification email');
     }
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    await User.findByIdAndUpdate(user._id, { $push: { refreshTokens: refreshToken } });
+    user.refreshTokens = user.refreshTokens ?? [];
+    user.refreshTokens.push(refreshToken);
+    await user.save();
 
     setRefreshCookie(res, refreshToken);
 
@@ -83,7 +86,7 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password +refreshTokens');
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -109,7 +112,8 @@ const login = async (req, res, next) => {
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    await User.findByIdAndUpdate(user._id, { $push: { refreshTokens: refreshToken } });
+    user.refreshTokens.push(refreshToken);
+    await user.save();
 
     setRefreshCookie(res, refreshToken);
 
@@ -139,9 +143,9 @@ const refresh = async (req, res, next) => {
     }
 
     const user = await User.findById(decoded.id).select('+refreshTokens');
-    if (!user || !user.refreshTokens.includes(token)) {
+    if (!user) {
       clearRefreshCookie(res);
-      return res.status(401).json({ success: false, message: 'Refresh token revoked.' });
+      return res.status(401).json({ success: false, message: 'User not found.' });
     }
 
     if (!user.isActive) {
@@ -149,10 +153,31 @@ const refresh = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Your account has been suspended.' });
     }
 
+    const tokenIndex = user.refreshTokens.indexOf(token);
+
+    // ── Refresh token reuse detection ────────────────────────────────────
+    // If the presented token exists but is NOT the last one (most recent),
+    // it indicates token theft — revoke ALL sessions immediately.
+    if (tokenIndex === -1) {
+      clearRefreshCookie(res);
+      return res.status(401).json({ success: false, message: 'Refresh token revoked.' });
+    }
+
+    if (tokenIndex !== user.refreshTokens.length - 1) {
+      logger.warn({ userId: user._id.toString() }, 'Refresh token reuse detected — revoking all sessions');
+      user.refreshTokens = [];
+      await user.save();
+      clearRefreshCookie(res);
+      return res.status(401).json({
+        success: false,
+        message: 'Session terminated due to security concern. Please log in again.',
+      });
+    }
+
     const newRefreshToken = generateRefreshToken(user._id);
-    // MongoDB 4.2+ interdit $pull et $push sur le même champ dans une seule opération
-    await User.findByIdAndUpdate(user._id, { $pull: { refreshTokens: token } });
-    await User.findByIdAndUpdate(user._id, { $push: { refreshTokens: newRefreshToken } });
+    user.refreshTokens = user.refreshTokens.filter((t) => t !== token);
+    user.refreshTokens.push(newRefreshToken);
+    await user.save();
 
     const accessToken = generateAccessToken(user._id);
     setRefreshCookie(res, newRefreshToken);
@@ -243,7 +268,7 @@ const resendVerification = async (req, res, next) => {  try {
       to: req.user.email,
       name: req.user.name,
       token: verificationToken,
-    }).catch((err) => console.error('Failed to resend verification email:', err.message));
+    }).catch((err) => logger.error({ err }, 'Failed to resend verification email'));
 
     return res.status(200).json({
       success: true,
@@ -277,7 +302,7 @@ const forgotPassword = async (req, res, next) => {
     });
 
     sendPasswordResetEmail({ to: user.email, name: user.name, token: resetToken })
-      .catch((err) => console.error('Failed to send password reset email:', err.message));
+      .catch((err) => logger.error({ err }, 'Failed to send password reset email'));
 
     return res.status(200).json({
       success: true,

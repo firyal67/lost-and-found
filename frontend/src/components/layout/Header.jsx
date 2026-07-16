@@ -3,138 +3,177 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { MapPin, Menu, X, Plus, LayoutDashboard, LogOut, User, Shield, ChevronDown } from "lucide-react";
+import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logoutUser } from "@/store/slices/authSlice";
 import toast from "react-hot-toast";
 
 export default function Header() {
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const { user, isHydrating } = useAppSelector((s) => s.auth);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled,   setScrolled]   = useState(false);
 
-  /* ── shadow on scroll ── */
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* ── close mobile menu on route change ── */
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
-    toast.success("Déconnecté avec succès");
+    toast.success("Déconnecté");
     router.push("/");
   };
 
   const navLinks = [{ href: "/posts", label: "Annonces" }];
-  const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
+
+  /* active nav pill */
+  const isActive = (href) =>
+    pathname === href || pathname.startsWith(href + "/");
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-200
-        ${scrolled
-          ? "bg-white/95 backdrop-blur-md shadow-[0_1px_12px_rgb(0_0_0/.08)] border-b border-border/60"
-          : "bg-white/90 backdrop-blur-sm border-b border-border/40"
-        }`}
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        width: "100%",
+        transition: "background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
+        background: scrolled
+          ? "rgba(13,15,20,0.85)"
+          : "#0d0f14",
+        borderBottom: scrolled
+          ? "1px solid rgba(255,255,255,0.10)"
+          : "1px solid rgba(255,255,255,0.05)",
+        backdropFilter: scrolled ? "blur(16px) saturate(1.4)" : "none",
+        WebkitBackdropFilter: scrolled ? "blur(16px) saturate(1.4)" : "none",
+        boxShadow: scrolled ? "0 4px 24px rgba(0,0,0,0.40)" : "none",
+      }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-[60px] items-center justify-between gap-4">
 
-          {/* ── Logo ── */}
-          <Link
-            href="/"
-            className="flex items-center gap-2 shrink-0 group"
-          >
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 shadow-sm group-hover:shadow-md transition-shadow">
-              <MapPin className="h-4.5 w-4.5 text-white" strokeWidth={2.5} />
+          {/* ── Logo ─────────────────────────────────── */}
+          <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
+            <div
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-shadow duration-300 group-hover:shadow-[0_0_20px_rgba(79,142,247,0.35)]"
+              style={{
+                background: "linear-gradient(135deg, #4f8ef7, #3a7ae4)",
+                boxShadow: "0 0 14px rgba(79,142,247,0.25)",
+              }}
+            >
+              <Search className="h-4 w-4 text-white" strokeWidth={2.5} />
             </div>
-            <span className="text-lg font-bold tracking-tight text-gray-900">
-              Lost<span className="text-blue-600">&amp;</span>Found
+            <span
+              className="font-sans font-[700] text-[18px] tracking-[-0.02em]"
+              style={{ color: "#f0f2f8" }}
+            >
+              Lost<span style={{ color: "#4f8ef7" }}>&amp;</span>Found
             </span>
-            <span className="hidden sm:inline-block text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 leading-none mt-px">
+            <span
+              className="hidden sm:inline-flex items-center text-[11px] font-[600] tracking-[0.07em] uppercase rounded-full px-2.5 py-0.5 leading-none"
+              style={{
+                color: "#4f8ef7",
+                background: "rgba(79,142,247,0.10)",
+                border: "1px solid rgba(79,142,247,0.22)",
+              }}
+            >
               Tunisie
             </span>
           </Link>
 
-          {/* ── Nav desktop ── */}
-          <nav className="hidden md:flex items-center gap-0.5 flex-1 ml-2">
+          {/* ── Desktop nav ──────────────────────────── */}
+          <nav className="hidden md:flex items-center gap-1 flex-1 ml-6">
             {navLinks.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
-                className={`relative px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-150
-                  ${isActive(href)
-                    ? "text-blue-600 bg-blue-50"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50/80"
-                  }`}
+                className="relative px-3.5 py-2 rounded-lg text-[13px] font-[500] transition-all duration-150"
+                style={{
+                  color: isActive(href) ? "#f0f2f8" : "#8b91a8",
+                  background: isActive(href) ? "rgba(255,255,255,0.06)" : "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive(href)) {
+                    e.currentTarget.style.color = "#f0f2f8";
+                    e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive(href)) {
+                    e.currentTarget.style.color = "#8b91a8";
+                    e.currentTarget.style.background = "transparent";
+                  }
+                }}
               >
                 {label}
                 {isActive(href) && (
-                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-600" />
+                  <span
+                    className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full"
+                    style={{ background: "#4f8ef7" }}
+                  />
                 )}
               </Link>
             ))}
           </nav>
 
-          {/* ── Actions desktop ── */}
+          {/* ── Desktop actions ───────────────────────── */}
           <div className="hidden md:flex items-center gap-2">
             {isHydrating ? (
               <div className="flex gap-2">
-                <div className="h-8 w-28 animate-pulse bg-gray-100 rounded-lg" />
-                <div className="h-8 w-20 animate-pulse bg-gray-100 rounded-lg" />
+                <div className="h-8 w-28 rounded-lg animate-pulse-soft" style={{ background: "rgba(255,255,255,0.05)" }} />
+                <div className="h-8 w-20 rounded-lg animate-pulse-soft" style={{ background: "rgba(255,255,255,0.05)" }} />
               </div>
             ) : user ? (
               <>
                 {user.role === "admin" && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => router.push("/admin")}
-                    className="gap-1.5 text-violet-600 hover:text-violet-700 hover:bg-violet-50 font-medium"
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => router.push("/admin")}>
                     <Shield className="h-3.5 w-3.5" />
                     Admin
                   </Button>
                 )}
-
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => router.push("/dashboard")}
-                  className="gap-1.5 text-gray-600 hover:text-gray-900 font-medium"
-                >
+                <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
                   <LayoutDashboard className="h-3.5 w-3.5" />
                   Dashboard
                 </Button>
-
-                <Button
-                  size="sm"
-                  onClick={() => router.push("/posts/new")}
-                  className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-medium"
-                >
+                <Button size="sm" onClick={() => router.push("/posts/new")}>
                   <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
                   Nouvelle annonce
                 </Button>
 
-                {/* ── User chip ── */}
-                <div className="flex items-center gap-1 pl-2 ml-1 border-l border-border">
-                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-semibold text-xs shrink-0">
+                {/* User chip */}
+                <div
+                  className="flex items-center gap-2 pl-3 ml-1"
+                  style={{ borderLeft: "1px solid rgba(255,255,255,0.08)" }}
+                >
+                  <div
+                    className="flex items-center justify-center w-8 h-8 rounded-full text-white font-sans text-[12px] font-[600] shrink-0"
+                    style={{ background: "linear-gradient(135deg, #4f8ef7, #3a7ae4)" }}
+                  >
                     {user.name?.[0]?.toUpperCase() ?? "U"}
                   </div>
-                  <span className="hidden lg:block text-sm font-medium text-gray-700 truncate max-w-[110px]">
+                  <span className="hidden xl:block text-[13px] font-[500] truncate max-w-[120px]" style={{ color: "#b8bdd0" }}>
                     {user.name}
                   </span>
                   <button
                     onClick={handleLogout}
                     title="Se déconnecter"
-                    className="ml-1 p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    className="ml-1 p-1.5 rounded-lg transition-all duration-150"
+                    style={{ color: "#6b7494" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "#f87171";
+                      e.currentTarget.style.background = "rgba(248,113,113,0.08)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "#6b7494";
+                      e.currentTarget.style.background = "transparent";
+                    }}
                   >
                     <LogOut className="h-3.5 w-3.5" />
                   </button>
@@ -142,109 +181,118 @@ export default function Header() {
               </>
             ) : (
               <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => router.push("/auth/login")}
-                  className="text-gray-600 hover:text-gray-900 font-medium"
-                >
+                <Button variant="ghost" size="sm" onClick={() => router.push("/auth/login")}>
                   Se connecter
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => router.push("/auth/register")}
-                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-medium"
-                >
+                <Button size="sm" onClick={() => router.push("/auth/register")}>
                   Créer un compte
                 </Button>
               </>
             )}
           </div>
 
-          {/* ── Burger mobile ── */}
+          {/* ── Mobile hamburger ─────────────────────── */}
           <button
-            className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+            className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-150"
+            style={{ color: "#8b91a8" }}
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#f0f2f8";
+              e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "#8b91a8";
+              e.currentTarget.style.background = "transparent";
+            }}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
-      {/* ── Mobile drawer ── */}
+      {/* ── Mobile menu ──────────────────────────────── */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-border/60 bg-white/98 px-4 py-3 space-y-1 shadow-lg">
+        <div
+          className="md:hidden px-4 py-3 space-y-1 animate-slide-down"
+          style={{
+            borderTop: "1px solid rgba(255,255,255,0.07)",
+            background: "rgba(13,15,20,0.97)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.50)",
+          }}
+        >
           {navLinks.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
-              className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                ${isActive(href)
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                }`}
+              className="flex items-center px-3 py-2.5 rounded-lg text-[14px] font-[500] transition-all duration-150"
+              style={{
+                color: isActive(href) ? "#f0f2f8" : "#8b91a8",
+                background: isActive(href) ? "rgba(255,255,255,0.06)" : "transparent",
+              }}
             >
               {label}
             </Link>
           ))}
 
-          <div className="pt-2 mt-2 border-t border-border/60 space-y-1">
+          <div className="pt-3 mt-2 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             {user ? (
               <>
-                {/* User identity row */}
-                <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm shrink-0">
+                {/* User info */}
+                <div className="flex items-center gap-3 px-3 py-2.5 mb-1">
+                  <div
+                    className="flex items-center justify-center w-9 h-9 rounded-full text-white text-[14px] font-[600] shrink-0"
+                    style={{ background: "linear-gradient(135deg, #4f8ef7, #3a7ae4)" }}
+                  >
                     {user.name?.[0]?.toUpperCase() ?? "U"}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{user.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                    <p className="text-[14px] font-[500] truncate" style={{ color: "#f0f2f8" }}>{user.name}</p>
+                    <p className="text-[12px] truncate" style={{ color: "#6b7494" }}>{user.email}</p>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => router.push("/posts/new")}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nouvelle annonce
-                </button>
-                <button
-                  onClick={() => router.push("/dashboard")}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </button>
-                {user.role === "admin" && (
+                {[
+                  { label: "Nouvelle annonce", icon: <Plus className="h-4 w-4" />, action: () => router.push("/posts/new"), accent: true },
+                  { label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" />, action: () => router.push("/dashboard") },
+                  ...(user.role === "admin" ? [{ label: "Admin", icon: <Shield className="h-4 w-4" />, action: () => router.push("/admin") }] : []),
+                ].map(({ label, icon, action, accent }) => (
                   <button
-                    onClick={() => router.push("/admin")}
-                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
+                    key={label}
+                    onClick={action}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-[14px] font-[500] transition-colors"
+                    style={{ color: accent ? "#4f8ef7" : "#8b91a8" }}
                   >
-                    <Shield className="h-4 w-4" />
-                    Admin
+                    {icon} {label}
                   </button>
-                )}
+                ))}
+
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-[14px] font-[500] transition-colors"
+                  style={{ color: "#f87171" }}
                 >
-                  <LogOut className="h-4 w-4" />
-                  Se déconnecter
+                  <LogOut className="h-4 w-4" /> Se déconnecter
                 </button>
               </>
             ) : (
               <>
                 <button
                   onClick={() => router.push("/auth/login")}
-                  className="flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex items-center w-full px-3 py-2.5 rounded-lg text-[14px] font-[500] transition-colors"
+                  style={{ color: "#8b91a8" }}
                 >
                   Se connecter
                 </button>
                 <button
                   onClick={() => router.push("/auth/register")}
-                  className="flex items-center justify-center w-full px-3 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 text-white transition-opacity hover:opacity-90"
+                  className="flex items-center justify-center w-full px-3 py-3 rounded-lg text-[14px] font-[600] transition-all"
+                  style={{
+                    background: "linear-gradient(135deg, #4f8ef7, #3a7ae4)",
+                    color: "#fff",
+                  }}
                 >
                   Créer un compte
                 </button>

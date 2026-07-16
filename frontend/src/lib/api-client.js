@@ -1,7 +1,16 @@
-const BASE_URL =
-  typeof window !== "undefined" && process.env.NODE_ENV === "development"
-    ? "/api"
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+// Always point directly at the backend API.
+// In the browser during development, requests go through the Next.js rewrite
+// proxy (/api → http://localhost:5000/api) to avoid CORS issues.
+// On the server (SSR / server actions), window is undefined, so we use the
+// full backend URL directly — the proxy is only available in the browser.
+const BASE_URL = (() => {
+  if (typeof window !== "undefined") {
+    // Browser: use the Next.js proxy in all environments (avoids CORS)
+    return "/api";
+  }
+  // Server-side: call the backend directly
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+})();
 
 let isRefreshing = false;
 let failedQueue = [];

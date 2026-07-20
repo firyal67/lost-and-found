@@ -1,4 +1,5 @@
 const Post = require('../models/Post.model');
+const { calculateMatchScore } = require('../utils/matchScore');
 
 /**
  * POST /api/posts
@@ -18,6 +19,8 @@ const createPost = async (req, res, next) => {
       maskedDocNumber,
       reward,
       contactPreferences,
+      contactEmail,
+      contactPhone,
       photo,
     } = req.body;
 
@@ -37,6 +40,8 @@ const createPost = async (req, res, next) => {
         email:    contactPreferences?.email    ?? true,
         platform: contactPreferences?.platform ?? true,
       },
+      contactEmail:  contactEmail  || null,
+      contactPhone:  contactPhone  || null,
       author: req.user._id,
       status: 'active',
     });
@@ -90,6 +95,11 @@ const getPosts = async (req, res, next) => {
     // Default: show only active posts unless a specific status is requested
     if (req.query.status === 'resolved') {
       filter.status = 'resolved';
+    } else if (req.query.status === 'matched') {
+      filter.status = 'matched';
+    } else if (req.query.status === 'closed') {
+      // matched + resolved together
+      filter.status = { $in: ['matched', 'resolved'] };
     } else if (req.query.status === 'all') {
       // no status filter — show everything (admin use)
     } else {
@@ -250,4 +260,219 @@ const resolvePost = async (req, res, next) => {
   }
 };
 
-module.exports = { createPost, getPosts, getPostById, deletePost, resolvePost };
+/**
+ * PATCH /api/posts/:id/match
+ * Marque une annonce comme "mise en correspondance" (status = matched).
+ * Optionnellement lie l'annonce à celle qui a permis la correspondance (matchedWith).
+ *
+ * Body (JSON, optionnel):
+ *   matchedWith  — ID de l'annonce correspondante
+ *
+ * Réservé à l'auteur ou à un admin.
+ * Requiert authenticateJWT.
+ */
+const matchPost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { matchedWith } = req.body;
+
+    const post = await Post.findById(id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
+    }
+
+    const isOwner = post.author.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Accès refusé.' });
+    }
+
+    if (post.status === 'matched') {
+      return res.status(409).json({ success: false, message: 'Cette annonce est déjà marquée comme mise en correspondance.' });
+    }
+    if (post.status === 'resolved') {
+      return res.status(409).json({ success: false, message: 'Cette annonce est déjà clôturée.' });
+    }
+
+    // Si matchedWith est fourni, vérifier qu'il existe
+    if (matchedWith) {
+      const linkedPost = await Post.findById(matchedWith).lean();
+      if (!linkedPost) {
+        return res.status(404).json({ success: false, message: 'Annonce liée introuvable.' });
+      }
+      post.matchedWith = matchedWith;
+    }
+
+    post.status = 'matched';
+    await post.save();
+    await post.populate('author', 'name email');
+    // Populate aussi l'annonce liée si elle existe
+    if (post.matchedWith) await post.populate('matchedWith', 'title type city objectType');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Annonce marquée comme mise en correspondance.',
+      data: { post },
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'ID invalide.' });
+    }
+    next(error);
+  }
+};
+
+
+/**
+ * Retourne les annonces potentiellement correspondantes avec un score de compatibilité.
+ * Utilisé lors de la création d'une annonce pour suggérer des correspondances.
+ *
+ * Query params:
+ *   type        — "lost" | "found"
+ *   objectType  — type d'objet
+ *   city        — ville
+ *   delegation  — délégation / quartier (optionnel)
+ *   date        — date de l'événement (ISO string)
+ *   title       — titre (pour similarité mots-clés, optionnel)
+ *   description — description (pour similarité mots-clés, optionnel)
+ *
+ * Score 0–100 via calculateMatchScore() :
+ *   objectType  → 40 pts
+ *   city        → 25 pts
+ *   delegation  → 10 pts
+ *   date        → 0–15 pts (proximité temporelle)
+ *   keywords    → 0–10 pts (Jaccard titre+description)
+ *
+ * Public — pas d'auth requise.
+ */
+const getMatchingSuggestions = async (req, res, next) => {
+  try {
+    const { type, objectType, city, delegation, date, title, description } = req.query;
+
+    // On cherche le type opposé (lost ↔ found)
+    const oppositeType = type === 'lost' ? 'found' : 'lost';
+
+    // ── Filtre MongoDB — large pour laisser le scoring affiner ───────────────
+    const filter = { status: 'active', type: oppositeType };
+
+    // On filtre uniquement sur objectType (critère principal)
+    // La ville et la date sont laissées au scoring pour ne pas être trop restrictif
+    if (objectType) filter.objectType = objectType;
+
+    // Fenêtre temporelle élargie : ±90 jours
+    if (date) {
+      const d    = new Date(date);
+      const from = new Date(d); from.setDate(from.getDate() - 90);
+      const to   = new Date(d); to.setDate(to.getDate()   + 90);
+      filter.date = { $gte: from, $lte: to };
+    }
+
+    const candidates = await Post.find(filter)
+      .sort({ date: -1 })
+      .limit(50)
+      .populate('author', 'name')
+      .lean();
+
+    // ── Source virtuelle (les champs du formulaire en cours) ─────────────────
+    const source = { type, objectType, city, delegation, date, title, description };
+
+    // ── Calcul du score pour chaque candidat ─────────────────────────────────
+    const scored = candidates
+      .map((candidate) => {
+        const { total, breakdown, details } = calculateMatchScore(source, candidate);
+        return { ...candidate, matchScore: total, matchBreakdown: breakdown, matchDetails: details };
+      })
+      .filter((p) => p.matchScore >= 15)            // seuil minimum
+      .sort((a, b) => b.matchScore - a.matchScore)  // meilleurs en premier
+      .slice(0, 5);                                  // max 5 suggestions
+
+    return res.status(200).json({
+      success: true,
+      data: { suggestions: scored },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/posts/:id/matches
+ * Retourne les annonces correspondantes pour une annonce existante.
+ * Utilisé sur la page de détail d'une annonce.
+ * Public — pas d'auth requise.
+ */
+const getPostMatches = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const source = await Post.findById(id).lean();
+    if (!source) {
+      return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
+    }
+
+    // On cherche le type opposé
+    const oppositeType = source.type === 'lost' ? 'found' : 'lost';
+
+    // Filtre large : même objectType, fenêtre ±90 jours
+    const filter = {
+      status: 'active',
+      type:   oppositeType,
+      _id:    { $ne: source._id },
+    };
+
+    if (source.objectType) filter.objectType = source.objectType;
+
+    if (source.date) {
+      const d    = new Date(source.date);
+      const from = new Date(d); from.setDate(from.getDate() - 90);
+      const to   = new Date(d); to.setDate(to.getDate()   + 90);
+      filter.date = { $gte: from, $lte: to };
+    }
+
+    const candidates = await Post.find(filter)
+      .sort({ date: -1 })
+      .limit(50)
+      .populate('author', 'name')
+      .lean();
+
+    // Score chaque candidat vs l'annonce source
+    const scored = candidates
+      .map((candidate) => {
+        const { total, breakdown, details } = calculateMatchScore(source, candidate);
+        return { ...candidate, matchScore: total, matchBreakdown: breakdown, matchDetails: details };
+      })
+      .filter((p) => p.matchScore >= 15)
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, 5);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        source: {
+          _id:        source._id,
+          type:       source.type,
+          objectType: source.objectType,
+          city:       source.city,
+          date:       source.date,
+        },
+        matches: scored,
+      },
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'ID invalide.' });
+    }
+    next(error);
+  }
+};
+
+module.exports = {
+  createPost,
+  getPosts,
+  getPostById,
+  deletePost,
+  resolvePost,
+  matchPost,
+  getMatchingSuggestions,
+  getPostMatches,
+};

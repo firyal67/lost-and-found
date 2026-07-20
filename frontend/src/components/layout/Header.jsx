@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield } from "lucide-react";
+import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logoutUser } from "@/store/slices/authSlice";
@@ -141,6 +141,10 @@ export default function Header() {
                 <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
                   <LayoutDashboard className="h-3.5 w-3.5" />
                   Dashboard
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/contacts")}>
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Contacts
                 </Button>
                 <Button size="sm" onClick={() => router.push("/posts/new")}>
                   <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />

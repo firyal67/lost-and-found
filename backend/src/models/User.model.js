@@ -56,6 +56,13 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    // ── Numéro de téléphone (optionnel) ───────────────────────────────────────
+    phone: {
+      type: String,
+      trim: true,
+      default: null,
+      match: [/^[\d\s\+\-\(\)]{6,20}$/, 'Numéro de téléphone invalide'],
+    },
   },
   { timestamps: true }
 );

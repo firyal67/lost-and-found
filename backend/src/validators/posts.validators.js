@@ -98,6 +98,19 @@ const createPostValidator = [
   body('contactPreferences.platform')
     .optional()
     .isBoolean().withMessage('contactPreferences.platform doit être un booléen'),
+
+  // ── Email de contact visible (optionnel) ───────────────────────────────────
+  body('contactEmail')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isEmail().withMessage('Email de contact invalide'),
+
+  // ── Téléphone de contact visible (optionnel) ──────────────────────────────
+  body('contactPhone')
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^[\d\s\+\-\(\)]{6,20}$/)
+    .withMessage('Numéro de téléphone invalide (6-20 chiffres)'),
 ];
 
 module.exports = { createPostValidator };

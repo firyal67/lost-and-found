@@ -94,9 +94,25 @@ const postSchema = new mongoose.Schema(
 
     // ── Préférences de contact ────────────────────────────────────────────────
     contactPreferences: {
-      phone: { type: Boolean, default: false },
-      email: { type: Boolean, default: true },
-      platform: { type: Boolean, default: true },
+      phone:    { type: Boolean, default: false },
+      email:    { type: Boolean, default: true  },
+      platform: { type: Boolean, default: true  },
+    },
+
+    // ── Coordonnées de contact visibles aux autres utilisateurs ──────────────
+    // Renseignées par l'auteur lors de la publication de l'annonce
+    contactEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: null,
+      match: [/^\S+@\S+\.\S+$/, 'Email de contact invalide'],
+    },
+    contactPhone: {
+      type: String,
+      trim: true,
+      default: null,
+      match: [/^[\d\s\+\-\(\)]{6,20}$/, 'Numéro de téléphone invalide'],
     },
 
     // ── Numéro de document masqué (ex: ****5678) ─────────────────────────────
@@ -136,6 +152,19 @@ const postSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // ── Lien vers l'annonce correspondante (quand status = 'matched') ─────────
+    matchedWith: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref:  'Post',
+      default: null,
+    },
+
+    // ── Date de mise en correspondance ────────────────────────────────────────
+    matchedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -151,10 +180,15 @@ postSchema.index({ city: 1, objectType: 1, date: -1 });
 // Index texte pour la recherche full-text sur titre et description
 postSchema.index({ title: 'text', description: 'text' });
 
-// ── Hook : marque resolvedAt automatiquement ──────────────────────────────────
+// ── Hook : marque resolvedAt / matchedAt automatiquement ──────────────────────
 postSchema.pre('save', function (next) {
-  if (this.isModified('status') && this.status === 'resolved' && !this.resolvedAt) {
-    this.resolvedAt = new Date();
+  if (this.isModified('status')) {
+    if (this.status === 'resolved' && !this.resolvedAt) {
+      this.resolvedAt = new Date();
+    }
+    if (this.status === 'matched' && !this.matchedAt) {
+      this.matchedAt = new Date();
+    }
   }
   next();
 });

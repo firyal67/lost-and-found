@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,14 +11,14 @@ import {
   Loader2, Search, Package, CheckCircle2,
   ChevronLeft, ChevronRight, AlertTriangle,
   MapPin, Phone, Mail, MessageSquare, Check,
-  ImagePlus, X,
+  ImagePlus, X, Sparkles, ExternalLink, Tag, Calendar,
 } from "lucide-react";
 import { refreshAccessToken } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { createPost, clearPostErrors, clearCreatedPost } from "@/store/slices/postsSlice";
+import { createPost, clearPostErrors, clearCreatedPost, fetchMatchingSuggestions, clearSuggestions } from "@/store/slices/postsSlice";
 import { setAccessToken } from "@/store/slices/authSlice";
 
 const OBJECT_TYPES = [
@@ -56,10 +56,10 @@ const schema = z.object({
 });
 
 const STEP_FIELDS = [
-  ["type","objectType"],
-  ["title","description","maskedDocNumber"],
-  ["city","delegation","date"],
-  ["reward"],
+  ["type", "objectType"],   // étape 1
+  ["title", "description"], // étape 2
+  ["city"],                 // étape 3 — date validée à la soumission seulement
+  [],                       // étape 4 — tout optionnel
 ];
 
 const STEP_META = [
@@ -125,20 +125,170 @@ function FieldWrapper({ label, htmlFor, error, hint, required, children }) {
   );
 }
 
+/* ── Matching score bar ───────────────────────────────────────────────────── */
+function ScoreBar({ score }) {
+  const pct    = Math.min(100, Math.max(0, score));
+  const color  = pct >= 80 ? "#34d399" : pct >= 50 ? "#fbbf24" : "#4f8ef7";
+  const label  = pct >= 80 ? "Très pertinent" : pct >= 50 ? "Pertinent" : "Possible";
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="text-[11px] font-[600] shrink-0" style={{ color }}>{label}</span>
+    </div>
+  );
+}
+
+/* ── Matching suggestions panel ───────────────────────────────────────────── */
+const OBJECT_TYPE_LABELS_MAP = {
+  cin:            "Carte d'identité",
+  passport:       "Passeport",
+  permis:         "Permis de conduire",
+  carte_bancaire: "Carte bancaire",
+  telephone:      "Téléphone",
+  cles:           "Clés",
+  autre:          "Autre",
+};
+
+function MatchingSuggestionsPanel({ suggestions, isLoading, currentType }) {
+  const oppositeLabel = currentType === "lost" ? "trouvés" : "perdus";
+
+  if (isLoading) {
+    return (
+      <div
+        className="rounded-xl p-5 flex items-center gap-3"
+        style={{ background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.18)" }}
+      >
+        <Loader2 className="h-4 w-4 animate-spin shrink-0" style={{ color: "#4f8ef7" }} />
+        <p className="text-[13px]" style={{ color: "#8b91a8" }}>
+          Recherche de correspondances…
+        </p>
+      </div>
+    );
+  }
+
+  if (!suggestions || suggestions.length === 0) return null;
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden animate-fade-in"
+      style={{ border: "1px solid rgba(79,142,247,0.25)" }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center gap-2.5 px-4 py-3"
+        style={{ background: "rgba(79,142,247,0.10)", borderBottom: "1px solid rgba(79,142,247,0.18)" }}
+      >
+        <Sparkles className="h-4 w-4 shrink-0" style={{ color: "#4f8ef7" }} />
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-[700]" style={{ color: "#f0f2f8" }}>
+            {suggestions.length} correspondance{suggestions.length > 1 ? "s" : ""} possible{suggestions.length > 1 ? "s" : ""} trouvée{suggestions.length > 1 ? "s" : ""}
+          </p>
+          <p className="text-[11px] mt-0.5" style={{ color: "#6b7494" }}>
+            Annonces d&apos;objets {oppositeLabel} qui pourraient correspondre
+          </p>
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div style={{ background: "#13161e" }}>
+        {suggestions.map((post, idx) => {
+          const dateStr = post.date
+            ? new Date(post.date).toLocaleDateString("fr-TN", { day: "numeric", month: "short", year: "numeric" })
+            : "—";
+
+          return (
+            <div
+              key={post._id}
+              className="px-4 py-3.5 transition-colors"
+              style={{
+                borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.05)" : "none",
+              }}
+            >
+              {/* Score bar */}
+              <ScoreBar score={post.matchScore} />
+
+              {/* Title + link */}
+              <div className="flex items-start justify-between gap-2 mt-2">
+                <p className="text-[14px] font-[600] leading-tight line-clamp-1" style={{ color: "#f0f2f8" }}>
+                  {post.title}
+                </p>
+                <Link
+                  href={`/posts/${post._id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 shrink-0 text-[11px] font-[600] px-2.5 py-1 rounded-full transition-all"
+                  style={{
+                    color: "#4f8ef7",
+                    background: "rgba(79,142,247,0.10)",
+                    border: "1px solid rgba(79,142,247,0.22)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Voir <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+
+              {/* Meta */}
+              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 text-[12px]" style={{ color: "#8b91a8" }}>
+                  <Tag className="h-3 w-3 shrink-0" />
+                  {OBJECT_TYPE_LABELS_MAP[post.objectType] ?? post.objectType}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[12px]" style={{ color: "#8b91a8" }}>
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  {post.city}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[12px]" style={{ color: "#8b91a8" }}>
+                  <Calendar className="h-3 w-3 shrink-0" />
+                  {dateStr}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div
+        className="px-4 py-2.5 flex items-center justify-between"
+        style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.05)" }}
+      >
+        <p className="text-[11px]" style={{ color: "#6b7494" }}>
+          Vérifiez ces annonces avant de publier — l&apos;objet a peut-être déjà été signalé.
+        </p>
+        <Link
+          href="/posts"
+          className="text-[11px] font-[600] ml-3 shrink-0 transition-colors"
+          style={{ color: "#4f8ef7" }}
+        >
+          Voir toutes →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function NewPostPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { accessToken } = useAppSelector((s) => s.auth);
-  const { isLoading, error, fieldErrors, createdPost } = useAppSelector((s) => s.posts);
+  const { isLoading, error, fieldErrors, createdPost, suggestions, isFetchingSuggestions } = useAppSelector((s) => s.posts);
   const [step, setStep] = useState(0);
   const [photo, setPhoto] = useState(null);
   const TOTAL_STEPS = 4;
 
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [contactPrefs, setContactPrefs] = useState({ platform: true, email: true, phone: false });
   const togglePref = (key) => setContactPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const tokenRef = useRef(accessToken);
   useEffect(() => { tokenRef.current = accessToken; }, [accessToken]);
+
+  // Debounce timer ref for matching suggestions
+  const suggestTimerRef = useRef(null);
 
   const { register, handleSubmit, trigger, watch, setValue, setError, formState: { errors } } =
     useForm({
@@ -150,8 +300,44 @@ export default function NewPostPage() {
       },
     });
 
-  const watchType = watch("type");
-  const watchObjectType = watch("objectType");
+  const watchType        = watch("type");
+  const watchObjectType  = watch("objectType");
+  const watchCity        = watch("city");
+  const watchDate        = watch("date");
+  const watchDelegation  = watch("delegation");
+  const watchTitle       = watch("title");
+  const watchDescription = watch("description");
+
+  // ── Auto-fetch matching suggestions when key fields change ────────────────
+  // Triggers on step 2 (city+date collected) or step 3 (summary)
+  // Debounced 600ms so we don't fire on every keystroke
+  useEffect(() => {
+    if (!watchObjectType) return; // need at least objectType
+    if (step < 2) return;         // wait until we have city+date context
+
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+
+    suggestTimerRef.current = setTimeout(() => {
+      dispatch(fetchMatchingSuggestions({
+        type:        watchType,
+        objectType:  watchObjectType,
+        city:        watchCity        || undefined,
+        delegation:  watchDelegation  || undefined,
+        date:        watchDate        || undefined,
+        title:       watchTitle       || undefined,
+        description: watchDescription || undefined,
+      }));
+    }, 600);
+
+    return () => {
+      if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    };
+  }, [watchType, watchObjectType, watchCity, watchDate, watchDelegation, watchTitle, watchDescription, step, dispatch]);
+
+  // Clear suggestions when leaving the form
+  useEffect(() => {
+    return () => { dispatch(clearSuggestions()); };
+  }, [dispatch]);
 
   useEffect(() => {
     if (createdPost) {
@@ -174,7 +360,8 @@ export default function NewPostPage() {
   }, [fieldErrors, setError]);
 
   const goNext = async () => {
-    const valid = await trigger(STEP_FIELDS[step]);
+    const fields = STEP_FIELDS[step];
+    const valid = fields.length === 0 ? true : await trigger(fields);
     if (valid) setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   };
   const goBack = () => setStep((s) => Math.max(s - 1, 0));
@@ -201,9 +388,11 @@ export default function NewPostPage() {
         maskedDocNumber: values.maskedDocNumber || null,
         reward: values.reward ? Number(values.reward) : null,
         photo: photo || null,
+        contactEmail: (contactPrefs.email && contactEmail)  ? contactEmail.trim()  : null,
+        contactPhone: (contactPrefs.phone && contactPhone)  ? contactPhone.trim()  : null,
         contactPreferences: {
-          phone: contactPrefs.phone,
-          email: contactPrefs.email,
+          phone:    contactPrefs.phone,
+          email:    contactPrefs.email,
           platform: contactPrefs.platform,
         },
       },
@@ -370,34 +559,171 @@ export default function NewPostPage() {
                     <Input id="date" type="date" max={new Date().toISOString().split("T")[0]} {...register("date")}
                       className={errors.date ? "border-[#d92d20]" : ""} />
                   </FieldWrapper>
+
+                  {/* ── Suggestions de correspondance ─────────────────── */}
+                  <MatchingSuggestionsPanel
+                    suggestions={suggestions}
+                    isLoading={isFetchingSuggestions}
+                    currentType={watchType}
+                  />
                 </div>
               )}
 
               {step === 3 && (
                 <div className="space-y-6">
-                  <div className="space-y-3">
-                    <Label className="font-sans text-label-md text-neutral-100">Préférences de contact</Label>
-                    <div className="space-y-2">
-                      {[
-                        { key:"platform", label:"Via la messagerie de la plateforme", icon:<MessageSquare className="h-4 w-4"/> },
-                        { key:"email", label:"Par email", icon:<Mail className="h-4 w-4"/> },
-                        { key:"phone", label:"Par téléphone", icon:<Phone className="h-4 w-4"/> },
-                      ].map(({ key, label, icon }) => {
-                        const checked = contactPrefs[key];
-                        return (
-                          <button key={key} type="button" onClick={() => togglePref(key)}
-                            className={["w-full flex items-center gap-3.5 px-4 py-3 rounded-lg border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0267ad]",
-                              checked ? "border-primary bg-primary-subtle" : "border-border-default bg-transparent hover:bg-surface-elevated/50"].join(" ")}>
-                            <span className={["flex items-center justify-center w-4 h-4 rounded-lg border-2 shrink-0 transition-all",
-                              checked ? "bg-[#0267ad] border-primary" : "bg-transparent border-white/30"].join(" ")}>
-                              {checked && <Check className="h-2.5 w-2.5 text-neutral-50" strokeWidth={3.5}/>}
-                            </span>
-                            <span className={`transition-colors ${checked ? "text-primary" : "text-neutral-200"}`}>{icon}</span>
-                            <span className={`font-sans text-label-md transition-colors ${checked ? "text-neutral-50" : "text-neutral-200"}`}>{label}</span>
-                          </button>
-                        );
-                      })}
+
+                  {/* ── Correspondances potentielles (rappel étape 3) ────── */}
+                  {suggestions.length > 0 && (
+                    <div
+                      className="rounded-xl p-4 flex items-start gap-3 animate-fade-in"
+                      style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.22)" }}
+                    >
+                      <Sparkles className="h-4 w-4 mt-0.5 shrink-0" style={{ color: "#34d399" }} />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-[600]" style={{ color: "#34d399" }}>
+                          {suggestions.length} annonce{suggestions.length > 1 ? "s" : ""} correspondante{suggestions.length > 1 ? "s" : ""} trouvée{suggestions.length > 1 ? "s" : ""}
+                        </p>
+                        <p className="text-[12px] mt-0.5 leading-relaxed" style={{ color: "#8b91a8" }}>
+                          Avant de publier, vérifiez que votre objet n&apos;est pas déjà signalé.{" "}
+                          <Link
+                            href="/posts"
+                            target="_blank"
+                            className="font-[600] underline"
+                            style={{ color: "#34d399" }}
+                          >
+                            Voir les annonces →
+                          </Link>
+                        </p>
+                      </div>
                     </div>
+                  )}
+
+                  {/* ── Préférences de contact ─────────────────────────── */}
+                  <div className="space-y-2">
+                    <p className="font-sans text-[13px] font-[600] text-[#f0f2f8]">
+                      Préférences de contact
+                      <span className="ml-2 text-[12px] font-[400] text-[#6b7494]">— choisissez au moins une</span>
+                    </p>
+
+                    {/* Plateforme */}
+                    <label className="flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer select-none transition-all"
+                      style={{
+                        border: contactPrefs.platform ? "1px solid #4f8ef7" : "1px solid rgba(255,255,255,0.08)",
+                        background: contactPrefs.platform ? "rgba(79,142,247,0.08)" : "transparent",
+                      }}>
+                      <input type="checkbox" className="sr-only"
+                        checked={contactPrefs.platform}
+                        onChange={() => togglePref("platform")} />
+                      <span className="flex items-center justify-center w-4 h-4 rounded border-2 shrink-0 transition-all"
+                        style={{
+                          background: contactPrefs.platform ? "#4f8ef7" : "transparent",
+                          borderColor: contactPrefs.platform ? "#4f8ef7" : "rgba(255,255,255,0.30)",
+                        }}>
+                        {contactPrefs.platform && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3.5} />}
+                      </span>
+                      <MessageSquare className="h-4 w-4 shrink-0" style={{ color: contactPrefs.platform ? "#4f8ef7" : "#6b7494" }} />
+                      <span className="font-sans text-[13px]" style={{ color: contactPrefs.platform ? "#f0f2f8" : "#b8bdd0" }}>
+                        Via la messagerie de la plateforme
+                      </span>
+                    </label>
+
+                    {/* Email */}
+                    <label className="flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer select-none transition-all"
+                      style={{
+                        border: contactPrefs.email ? "1px solid #4f8ef7" : "1px solid rgba(255,255,255,0.08)",
+                        background: contactPrefs.email ? "rgba(79,142,247,0.08)" : "transparent",
+                      }}>
+                      <input type="checkbox" className="sr-only"
+                        checked={contactPrefs.email}
+                        onChange={() => togglePref("email")} />
+                      <span className="flex items-center justify-center w-4 h-4 rounded border-2 shrink-0 transition-all"
+                        style={{
+                          background: contactPrefs.email ? "#4f8ef7" : "transparent",
+                          borderColor: contactPrefs.email ? "#4f8ef7" : "rgba(255,255,255,0.30)",
+                        }}>
+                        {contactPrefs.email && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3.5} />}
+                      </span>
+                      <Mail className="h-4 w-4 shrink-0" style={{ color: contactPrefs.email ? "#4f8ef7" : "#6b7494" }} />
+                      <span className="font-sans text-[13px]" style={{ color: contactPrefs.email ? "#f0f2f8" : "#b8bdd0" }}>
+                        Par email
+                      </span>
+                    </label>
+
+                    {/* Champ email — géré par useState, indépendant de react-hook-form */}
+                    {contactPrefs.email && (
+                      <div className="ml-3 pl-3 space-y-1.5" style={{ borderLeft: "2px solid rgba(79,142,247,0.35)" }}>
+                        <label htmlFor="contactEmail" className="block text-[12px] font-[500]" style={{ color: "#b8bdd0" }}>
+                          Adresse email de contact
+                        </label>
+                        <input
+                          id="contactEmail"
+                          type="email"
+                          placeholder="votre@email.com"
+                          autoComplete="email"
+                          value={contactEmail}
+                          onChange={(e) => setContactEmail(e.target.value)}
+                          style={{
+                            width: "100%", height: "42px", borderRadius: "8px",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                            background: "#161921", padding: "0 12px",
+                            color: "#f0f2f8", fontSize: "14px", outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                          onFocus={(e) => { e.target.style.borderColor = "#4f8ef7"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.20)"; }}
+                          onBlur={(e) => { e.target.style.borderColor = "rgba(255,255,255,0.10)"; e.target.style.boxShadow = "none"; }}
+                        />
+                        <p className="text-[12px]" style={{ color: "#6b7494" }}>Visible uniquement par les personnes connectées</p>
+                      </div>
+                    )}
+
+                    {/* Téléphone */}
+                    <label className="flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer select-none transition-all"
+                      style={{
+                        border: contactPrefs.phone ? "1px solid #4f8ef7" : "1px solid rgba(255,255,255,0.08)",
+                        background: contactPrefs.phone ? "rgba(79,142,247,0.08)" : "transparent",
+                      }}>
+                      <input type="checkbox" className="sr-only"
+                        checked={contactPrefs.phone}
+                        onChange={() => togglePref("phone")} />
+                      <span className="flex items-center justify-center w-4 h-4 rounded border-2 shrink-0 transition-all"
+                        style={{
+                          background: contactPrefs.phone ? "#4f8ef7" : "transparent",
+                          borderColor: contactPrefs.phone ? "#4f8ef7" : "rgba(255,255,255,0.30)",
+                        }}>
+                        {contactPrefs.phone && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3.5} />}
+                      </span>
+                      <Phone className="h-4 w-4 shrink-0" style={{ color: contactPrefs.phone ? "#4f8ef7" : "#6b7494" }} />
+                      <span className="font-sans text-[13px]" style={{ color: contactPrefs.phone ? "#f0f2f8" : "#b8bdd0" }}>
+                        Par téléphone
+                      </span>
+                    </label>
+
+                    {/* Champ téléphone — géré par useState, indépendant de react-hook-form */}
+                    {contactPrefs.phone && (
+                      <div className="ml-3 pl-3 space-y-1.5" style={{ borderLeft: "2px solid rgba(79,142,247,0.35)" }}>
+                        <label htmlFor="contactPhone" className="block text-[12px] font-[500]" style={{ color: "#b8bdd0" }}>
+                          Numéro de téléphone de contact
+                        </label>
+                        <input
+                          id="contactPhone"
+                          type="tel"
+                          placeholder="+216 XX XXX XXX"
+                          autoComplete="tel"
+                          value={contactPhone}
+                          onChange={(e) => setContactPhone(e.target.value)}
+                          style={{
+                            width: "100%", height: "42px", borderRadius: "8px",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                            background: "#161921", padding: "0 12px",
+                            color: "#f0f2f8", fontSize: "14px", outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                          onFocus={(e) => { e.target.style.borderColor = "#4f8ef7"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.20)"; }}
+                          onBlur={(e) => { e.target.style.borderColor = "rgba(255,255,255,0.10)"; e.target.style.boxShadow = "none"; }}
+                        />
+                        <p className="text-[12px]" style={{ color: "#6b7494" }}>Visible uniquement par les personnes connectées</p>
+                      </div>
+                    )}
                   </div>
 
                   {watchType === "lost" && (

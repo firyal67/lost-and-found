@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { postsApi } from "@/lib/api/posts.api";
 import PageContainer from "@/components/layout/PageContainer";
-import { useAppSelector } from "@/store/hooks";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { setAccessToken } from "@/store/slices/authSlice";
 import toast from "react-hot-toast";
 
 const OBJECT_TYPE_LABELS = {
@@ -114,23 +115,42 @@ function DeleteModal({ post, onConfirm, onCancel, isDeleting }) {
 }
 
 function PostCard({ post, currentUser, accessToken, onDeleted }) {
+  const dispatch = useAppDispatch();
+  const { accessToken: storeToken } = useAppSelector((s) => s.auth);
+  const effectiveToken = accessToken || storeToken;
+
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDeleting,  setIsDeleting]  = useState(false);
   const isResolved = post.status === "resolved";
+
   const canDelete = currentUser &&
     (currentUser._id === post.author?._id?.toString() ||
      currentUser.id  === post.author?._id?.toString() ||
      currentUser.role === "admin");
+
   const formattedDate = post.date
     ? new Date(post.date).toLocaleDateString("fr-TN", { day: "numeric", month: "short", year: "numeric" })
     : "—";
+
+  const getToken = async () => {
+    if (effectiveToken) return effectiveToken;
+    const { refreshAccessToken } = await import("@/lib/api-client");
+    const token = await refreshAccessToken();
+    dispatch(setAccessToken(token));
+    return token;
+  };
+
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await postsApi.deletePost(post._id, accessToken);
-      toast.success("Annonce supprimée."); setShowConfirm(false); onDeleted(post._id);
+      const token = await getToken();
+      await postsApi.deletePost(post._id, token);
+      toast.success("Annonce supprimée.");
+      setShowConfirm(false);
+      onDeleted(post._id);
     } catch (err) {
-      toast.error(err?.response?.message || "Erreur lors de la suppression."); setIsDeleting(false);
+      toast.error(err?.response?.message || "Erreur lors de la suppression.");
+      setIsDeleting(false);
     }
   };
   return (

@@ -8,7 +8,7 @@ import {
   Loader2, MapPin, Calendar, Tag, User, Mail, Phone, MessageSquare,
   ArrowLeft, Package, Shield, Clock, AlertCircle, X, Send, CheckCircle2,
   Trash2, CheckCheck, Sparkles, ExternalLink, TrendingUp, ChevronDown, ChevronUp,
-  Link2, HandshakeIcon,
+  Link2, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { postsApi } from "@/lib/api/posts.api";
@@ -1183,6 +1183,17 @@ export default function PostDetailPage() {
                     style={{ background: "rgba(79,142,247,0.08)", color: "#4f8ef7", border: "1px solid rgba(79,142,247,0.22)" }}>
                     <CheckCheck className="h-4 w-4" /> Marquer comme résolu
                   </button>
+                )}
+
+                {/* Edit button — only owner on active posts */}
+                {canManage && !isClosed && (
+                  <Link
+                    href={`/posts/${post._id}/edit`}
+                    className="inline-flex items-center justify-center gap-2 h-[42px] px-4 rounded-lg text-[13px] font-[600] transition-all"
+                    style={{ background: "rgba(255,255,255,0.05)", color: "#b8bdd0", border: "1px solid rgba(255,255,255,0.10)" }}
+                  >
+                    <Pencil className="h-4 w-4" /> Modifier
+                  </Link>
                 )}
 
                 {/* Delete button */}

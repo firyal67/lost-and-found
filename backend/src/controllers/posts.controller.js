@@ -322,6 +322,77 @@ const matchPost = async (req, res, next) => {
   }
 };
 
+/**
+ * PATCH /api/posts/:id
+ * Modifie une annonce existante.
+ * Réservé à l'auteur ou à un admin.
+ * Seules les annonces actives peuvent être modifiées.
+ * Requiert authenticateJWT.
+ */
+const updatePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const post = await Post.findById(id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
+    }
+
+    const isOwner = post.author.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Accès refusé.' });
+    }
+
+    if (post.status !== 'active') {
+      return res.status(409).json({
+        success: false,
+        message: 'Seules les annonces actives peuvent être modifiées.',
+      });
+    }
+
+    const ALLOWED = [
+      'objectType', 'title', 'description', 'city', 'delegation',
+      'date', 'maskedDocNumber', 'reward', 'photo',
+      'contactEmail', 'contactPhone', 'contactPreferences',
+    ];
+
+    ALLOWED.forEach((field) => {
+      if (field in req.body) {
+        if (field === 'contactPreferences') {
+          post.contactPreferences = {
+            ...(post.contactPreferences?.toObject?.() ?? post.contactPreferences),
+            ...req.body.contactPreferences,
+          };
+        } else if (field === 'reward') {
+          post.reward = req.body.reward != null ? Number(req.body.reward) : null;
+        } else if (['maskedDocNumber','contactEmail','contactPhone','photo'].includes(field)) {
+          post[field] = req.body[field] || null;
+        } else {
+          post[field] = req.body[field];
+        }
+      }
+    });
+
+    await post.save();
+    await post.populate('author', 'name email');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Annonce mise à jour avec succès.',
+      data: { post },
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map((e) => ({ field: e.path, message: e.message }));
+      return res.status(422).json({ success: false, message: 'Validation échouée', errors });
+    }
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'ID invalide.' });
+    }
+    next(error);
+  }
+};
 
 /**
  * Retourne les annonces potentiellement correspondantes avec un score de compatibilité.
@@ -467,12 +538,7 @@ const getPostMatches = async (req, res, next) => {
 };
 
 module.exports = {
-  createPost,
-  getPosts,
-  getPostById,
-  deletePost,
-  resolvePost,
-  matchPost,
-  getMatchingSuggestions,
-  getPostMatches,
+  createPost, getPosts, getPostById,
+  deletePost, resolvePost, matchPost, updatePost,
+  getMatchingSuggestions, getPostMatches,
 };

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createPost, getPosts, getPostById, deletePost, resolvePost, matchPost, getMatchingSuggestions, getPostMatches } = require('../controllers/posts.controller');
+const { createPost, getPosts, getPostById, deletePost, resolvePost, matchPost, updatePost, getMatchingSuggestions, getPostMatches } = require('../controllers/posts.controller');
 const validate = require('../middleware/validate.middleware');
 const { createPostValidator } = require('../validators/posts.validators');
 const { authenticateJWT } = require('../middleware/auth.middleware');
@@ -23,6 +23,9 @@ router.post('/', authenticateJWT, validate(createPostValidator), createPost);
 
 // DELETE /api/posts/:id — Supprimer une annonce (owner ou admin)
 router.delete('/:id', authenticateJWT, deletePost);
+
+// PATCH /api/posts/:id — Modifier une annonce (owner ou admin)
+router.patch('/:id', authenticateJWT, updatePost);
 
 // PATCH /api/posts/:id/resolve — Clôturer une annonce (owner ou admin)
 router.patch('/:id/resolve', authenticateJWT, resolvePost);

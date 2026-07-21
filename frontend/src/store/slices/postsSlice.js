@@ -9,9 +9,18 @@ export const createPost = createAsyncThunk(
     try {
       return await postsApi.createPost(payload, token);
     } catch (err) {
-      return rejectWithValue(
-        err.response ?? { message: err.message ?? "Network error." }
-      );
+      return rejectWithValue(err.response ?? { message: err.message ?? "Network error." });
+    }
+  }
+);
+
+export const updatePost = createAsyncThunk(
+  "posts/update",
+  async ({ id, payload, token }, { rejectWithValue }) => {
+    try {
+      return await postsApi.updatePost(id, payload, token);
+    } catch (err) {
+      return rejectWithValue(err.response ?? { message: err.message ?? "Network error." });
     }
   }
 );
@@ -33,12 +42,13 @@ export const fetchMatchingSuggestions = createAsyncThunk(
 // ─── Slice ─────────────────────────────────────────────────────────────────
 
 const initialState = {
-  createdPost:          null,
-  isLoading:            false,
-  error:                null,
-  fieldErrors:          null,
-  // Matching suggestions
-  suggestions:          [],
+  createdPost:           null,
+  updatedPost:           null,   // annonce après édition réussie
+  isLoading:             false,
+  isSaving:              false,  // saving spécifique à l'update
+  error:                 null,
+  fieldErrors:           null,
+  suggestions:           [],
   isFetchingSuggestions: false,
 };
 
@@ -47,11 +57,14 @@ const postsSlice = createSlice({
   initialState,
   reducers: {
     clearPostErrors(state) {
-      state.error      = null;
+      state.error       = null;
       state.fieldErrors = null;
     },
     clearCreatedPost(state) {
       state.createdPost = null;
+    },
+    clearUpdatedPost(state) {
+      state.updatedPost = null;
     },
     clearSuggestions(state) {
       state.suggestions          = [];
@@ -76,6 +89,23 @@ const postsSlice = createSlice({
         state.fieldErrors = action.payload?.errors  || null;
       });
 
+    // ── Update post ──────────────────────────────────────────────────────────
+    builder
+      .addCase(updatePost.pending, (state) => {
+        state.isSaving    = true;
+        state.error       = null;
+        state.fieldErrors = null;
+      })
+      .addCase(updatePost.fulfilled, (state, action) => {
+        state.isSaving    = false;
+        state.updatedPost = action.payload.data.post;
+      })
+      .addCase(updatePost.rejected, (state, action) => {
+        state.isSaving    = false;
+        state.error       = action.payload?.message || "Une erreur est survenue.";
+        state.fieldErrors = action.payload?.errors  || null;
+      });
+
     // ── Matching suggestions ─────────────────────────────────────────────────
     builder
       .addCase(fetchMatchingSuggestions.pending, (state) => {
@@ -92,5 +122,5 @@ const postsSlice = createSlice({
   },
 });
 
-export const { clearPostErrors, clearCreatedPost, clearSuggestions } = postsSlice.actions;
+export const { clearPostErrors, clearCreatedPost, clearUpdatedPost, clearSuggestions } = postsSlice.actions;
 export default postsSlice.reducer;

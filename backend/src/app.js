@@ -51,6 +51,7 @@ app.use('/api/auth',     authRoutes);
 app.use('/api/posts',    postRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/upload',   uploadRoutes);
+app.use('/api/chat',     require('./routes/chat.routes'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

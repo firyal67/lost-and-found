@@ -33,6 +33,21 @@ export const postsApi = {
     });
   },
   /**
+   * PATCH /api/posts/:id
+   * Met à jour une annonce existante (owner ou admin).
+   * @param {string} id      - ID de l'annonce
+   * @param {Object} payload - Champs à mettre à jour
+   * @param {string} token   - Access token JWT
+   */
+  updatePost: async (id, payload, token) => {
+    return apiFetch(`/posts/${id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
    * POST /api/contacts
    * Envoyer une demande de contact pour une annonce.
    * @param {string} postId   - ID de l'annonce

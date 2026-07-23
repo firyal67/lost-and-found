@@ -7,10 +7,11 @@ import toast from "react-hot-toast";
 import {
   Loader2, Flag, AlertCircle, RefreshCw, ChevronLeft, ChevronRight,
   ExternalLink, CheckCircle2, XCircle, Eye, Clock, ShieldAlert,
-  MapPin, Tag, X,
+  MapPin, X, Archive, CheckCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportsApi } from "@/lib/api/reports.api";
+import { postsApi  } from "@/lib/api/posts.api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setAccessToken } from "@/store/slices/authSlice";
 import PageContainer from "@/components/layout/PageContainer";
@@ -84,7 +85,7 @@ function StatusBadge({ status }) {
 }
 
 /* ── AdminNoteModal ──────────────────────────────────────────────────────── */
-function AdminNoteModal({ report, onClose, onUpdated, token }) {
+function AdminNoteModal({ report, onClose, onUpdated, getToken }) {
   const [status,    setStatus]    = useState(report.status);
   const [adminNote, setAdminNote] = useState(report.adminNote || "");
   const [loading,   setLoading]   = useState(false);
@@ -98,6 +99,7 @@ function AdminNoteModal({ report, onClose, onUpdated, token }) {
   const handleSave = async () => {
     setLoading(true);
     try {
+      const token = await getToken();
       const data = await reportsApi.updateReportStatus(report._id, { status, adminNote }, token);
       toast.success("Statut mis à jour.");
       onUpdated(data.data.report);
@@ -191,8 +193,10 @@ function AdminNoteModal({ report, onClose, onUpdated, token }) {
 }
 
 /* ── ReportCard ──────────────────────────────────────────────────────────── */
-function ReportCard({ report, token, onUpdated }) {
+function ReportCard({ report, getToken, onUpdated }) {
   const [showModal, setShowModal] = useState(false);
+  const [dismissing, setDismissing] = useState(false);
+  const [archiving,  setArchiving]  = useState(false);
 
   const post        = report.post;
   const reporter    = report.reporter;
@@ -202,10 +206,40 @@ function ReportCard({ report, token, onUpdated }) {
     ? new Date(report.reviewedAt).toLocaleDateString("fr-TN", { day: "numeric", month: "short", year: "numeric" })
     : null;
 
+  const handleDismiss = async () => {
+    setDismissing(true);
+    try {
+      const token = await getToken();
+      const data = await reportsApi.updateReportStatus(report._id, { status: "dismissed" }, token);
+      toast.success("Signalement rejeté.");
+      onUpdated(data.data.report);
+    } catch (err) {
+      toast.error(err.response?.message || "Erreur.");
+    } finally {
+      setDismissing(false);
+    }
+  };
+
+  const handleArchivePost = async () => {
+    if (!post?._id) return;
+    setArchiving(true);
+    try {
+      const token = await getToken();
+      await postsApi.archivePost(post._id, token);
+      const data = await reportsApi.updateReportStatus(report._id, { status: "actioned", adminNote: "Annonce archivée" }, token);
+      toast.success("Annonce archivée, signalement marqué comme traité.");
+      onUpdated(data.data.report);
+    } catch (err) {
+      toast.error(err.response?.message || "Erreur.");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   return (
     <>
       {showModal && (
-        <AdminNoteModal report={report} token={token} onClose={() => setShowModal(false)} onUpdated={onUpdated} />
+        <AdminNoteModal report={report} getToken={getToken} onClose={() => setShowModal(false)} onUpdated={onUpdated} />
       )}
       <div className="rounded-xl overflow-hidden transition-all"
         style={{ background: C.surface, border: `1px solid ${C.border}` }}>
@@ -284,17 +318,62 @@ function ReportCard({ report, token, onUpdated }) {
             </div>
           )}
 
-          {/* Action button */}
+          {/* Quick actions */}
+          {report.status === "pending" && (
+            <div className="flex gap-2">
+              <button onClick={handleDismiss} disabled={dismissing || archiving}
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-[700] transition-all disabled:opacity-40"
+                style={{ background: "rgba(107,116,148,0.08)", color: C.inkMut, border: "1px solid rgba(107,116,148,0.20)" }}
+                onMouseEnter={(e) => { if (!dismissing && !archiving) e.currentTarget.style.background = "rgba(107,116,148,0.14)"; }}
+                onMouseLeave={(e) => { if (!dismissing && !archiving) e.currentTarget.style.background = "rgba(107,116,148,0.08)"; }}>
+                {dismissing ? <><Loader2 className="h-3 w-3 animate-spin" /> Rejet…</> : <><XCircle className="h-3 w-3" /> Rejeter</>}
+              </button>
+              {post?._id && post.status !== "archived" && (
+                <button onClick={handleArchivePost} disabled={dismissing || archiving}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-[700] transition-all disabled:opacity-40"
+                  style={{ background: "rgba(251,146,60,0.08)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.20)" }}
+                  onMouseEnter={(e) => { if (!dismissing && !archiving) e.currentTarget.style.background = "rgba(251,146,60,0.14)"; }}
+                  onMouseLeave={(e) => { if (!dismissing && !archiving) e.currentTarget.style.background = "rgba(251,146,60,0.08)"; }}>
+                  {archiving ? <><Loader2 className="h-3 w-3 animate-spin" /> Archivage…</> : <><Archive className="h-3 w-3" /> Archiver l&apos;annonce</>}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Full modal button */}
           <button onClick={() => setShowModal(true)}
             className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-[12px] font-[700] transition-all mt-1"
             style={{ background: "rgba(79,142,247,0.08)", color: C.accent, border: "1px solid rgba(79,142,247,0.22)" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(79,142,247,0.16)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(79,142,247,0.08)"; }}>
-            <ShieldAlert className="h-3.5 w-3.5" /> Traiter ce signalement
+            <ShieldAlert className="h-3.5 w-3.5" /> Traiter en détail
           </button>
         </div>
       </div>
     </>
+  );
+}
+
+/* ── Stats bar ───────────────────────────────────────────────────────────── */
+function StatsBar({ counts }) {
+  const items = [
+    { key: "pending",   label: "En attente", color: C.warning, bg: "rgba(251,191,36,0.10)",  border: "rgba(251,191,36,0.22)"  },
+    { key: "reviewed",  label: "Examinés",   color: C.accent,  bg: "rgba(79,142,247,0.10)",  border: "rgba(79,142,247,0.22)"  },
+    { key: "actioned",  label: "Traités",    color: C.success, bg: "rgba(52,211,153,0.10)",  border: "rgba(52,211,153,0.22)"  },
+    { key: "dismissed", label: "Rejetés",    color: C.inkMut,  bg: "rgba(107,116,148,0.10)", border: "rgba(107,116,148,0.22)" },
+  ];
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7">
+      {items.map(({ key, label, color, bg, border }) => (
+        <div key={key} className="flex flex-col gap-1 px-4 py-3 rounded-xl"
+          style={{ background: bg, border: `1px solid ${border}` }}>
+          <span className="text-[11px] font-[600] uppercase tracking-[0.07em]" style={{ color: C.inkMut }}>{label}</span>
+          <span className="text-[26px] font-[800] tracking-[-0.03em] leading-none" style={{ color }}>
+            {counts[key] ?? "—"}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -324,13 +403,13 @@ export default function ReportsDashboardPage() {
   const dispatch = useAppDispatch();
   const { user, isHydrating, accessToken } = useAppSelector((s) => s.auth);
 
-  const [activeTab,   setActiveTab]   = useState("pending");
-  const [reports,     setReports]     = useState([]);
-  const [pagination,  setPagination]  = useState(null);
-  const [page,        setPage]        = useState(1);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState(null);
-  const [token,       setToken]       = useState(accessToken);
+  const [activeTab,  setActiveTab]  = useState("pending");
+  const [reports,    setReports]    = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [tabCounts,  setTabCounts]  = useState({});
+  const [page,       setPage]       = useState(1);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(null);
 
   // Redirect non-admins
   useEffect(() => {
@@ -338,14 +417,30 @@ export default function ReportsDashboardPage() {
     if (!isHydrating && user && user.role !== "admin") router.push("/");
   }, [user, isHydrating, router]);
 
+  // Always-fresh token — no stale local state
   const getToken = useCallback(async () => {
     if (accessToken) return accessToken;
     const { refreshAccessToken } = await import("@/lib/api-client");
     const t = await refreshAccessToken();
     dispatch(setAccessToken(t));
-    setToken(t);
     return t;
   }, [accessToken, dispatch]);
+
+  // Fetch the counts for all statuses (for the stats bar + tab badges)
+  const fetchCounts = useCallback(async () => {
+    try {
+      const t = await getToken();
+      const statuses = ["pending", "reviewed", "actioned", "dismissed"];
+      const results = await Promise.all(
+        statuses.map((s) => reportsApi.getReports({ status: s, page: 1, limit: 1 }, t))
+      );
+      const counts = {};
+      statuses.forEach((s, i) => { counts[s] = results[i].data.pagination.total; });
+      setTabCounts(counts);
+    } catch {
+      // silencieux — stats bar reste vide
+    }
+  }, [getToken]);
 
   const fetchReports = useCallback(async () => {
     setLoading(true); setError(null);
@@ -362,17 +457,20 @@ export default function ReportsDashboardPage() {
   }, [activeTab, page, getToken]);
 
   useEffect(() => {
-    if (!isHydrating && user?.role === "admin") fetchReports();
-  }, [activeTab, page, isHydrating, user, fetchReports]);
+    if (!isHydrating && user?.role === "admin") {
+      fetchReports();
+      fetchCounts();
+    }
+  }, [activeTab, page, isHydrating, user, fetchReports, fetchCounts]);
 
   // Reset to page 1 when tab changes
   useEffect(() => { setPage(1); }, [activeTab]);
 
-  const handleUpdated = (updated) => {
+  const handleUpdated = useCallback((updated) => {
     setReports((prev) => prev.map((r) => (r._id === updated._id ? updated : r)));
-  };
-
-  const pendingCount = activeTab === "pending" ? pagination?.total ?? 0 : 0;
+    // Refresh counts after any status change
+    fetchCounts();
+  }, [fetchCounts]);
 
   if (isHydrating) {
     return (
@@ -388,7 +486,7 @@ export default function ReportsDashboardPage() {
         <div className="py-8 max-w-5xl mx-auto">
 
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-7">
             <nav className="flex items-center gap-1.5 text-[13px] mb-4" style={{ color: C.inkMut }}>
               <Link href="/" className="transition-colors hover:text-[#f0f2f8]">Accueil</Link>
               <span>/</span>
@@ -402,10 +500,10 @@ export default function ReportsDashboardPage() {
                   <h1 className="font-sans font-[700] text-[26px] tracking-[-0.025em]" style={{ color: C.ink }}>
                     Signalements
                   </h1>
-                  {pagination?.total > 0 && activeTab === "pending" && (
+                  {(tabCounts.pending ?? 0) > 0 && (
                     <span className="flex items-center justify-center px-2.5 py-0.5 rounded-full text-[11px] font-[800]"
                       style={{ background: C.warning, color: "#1c1400" }}>
-                      {pagination.total}
+                      {tabCounts.pending}
                     </span>
                   )}
                 </div>
@@ -413,7 +511,7 @@ export default function ReportsDashboardPage() {
                   Modération des annonces signalées par les utilisateurs
                 </p>
               </div>
-              <button onClick={fetchReports} disabled={loading}
+              <button onClick={() => { fetchReports(); fetchCounts(); }} disabled={loading}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-[500] transition-all disabled:opacity-40"
                 style={{ border: `1px solid ${C.border}`, color: C.inkMut, background: "transparent" }}>
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -422,18 +520,31 @@ export default function ReportsDashboardPage() {
             </div>
           </div>
 
+          {/* Stats bar */}
+          {Object.keys(tabCounts).length > 0 && <StatsBar counts={tabCounts} />}
+
           {/* Status tabs */}
           <div className="flex overflow-x-auto rounded-xl p-1 mb-6 gap-1"
             style={{ background: C.surface, border: `1px solid ${C.border}` }}>
             {STATUS_TABS.map(({ id, label }) => (
               <button key={id} onClick={() => setActiveTab(id)}
-                className="flex-1 min-w-[80px] py-2.5 rounded-lg text-[12px] font-[600] transition-all whitespace-nowrap"
+                className="flex-1 min-w-[80px] py-2.5 rounded-lg text-[12px] font-[600] transition-all whitespace-nowrap flex items-center justify-center gap-1.5"
                 style={{
                   background: activeTab === id ? C.elevated : "transparent",
                   color:      activeTab === id ? C.ink      : C.inkMut,
                   border:     activeTab === id ? `1px solid ${C.border}` : "1px solid transparent",
                 }}>
                 {label}
+                {id !== "all" && (tabCounts[id] ?? 0) > 0 && (
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-[800]"
+                    style={{
+                      background: id === "pending" ? C.warning : STATUS_CONFIG[id]?.color,
+                      color:      id === "pending" ? "#1c1400" : "#fff",
+                      opacity:    activeTab === id ? 1 : 0.7,
+                    }}>
+                    {tabCounts[id]}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -458,7 +569,7 @@ export default function ReportsDashboardPage() {
                   <ReportCard
                     key={report._id}
                     report={report}
-                    token={token || accessToken}
+                    getToken={getToken}
                     onUpdated={handleUpdated}
                   />
                 ))}

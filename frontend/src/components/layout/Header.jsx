@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield, MessageSquare } from "lucide-react";
+import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield, MessageSquare, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logoutUser } from "@/store/slices/authSlice";
@@ -16,6 +16,7 @@ export default function Header() {
   const { user, isHydrating } = useAppSelector((s) => s.auth);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled,   setScrolled]   = useState(false);
+  const [pendingReports, setPendingReports] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -24,6 +25,25 @@ export default function Header() {
   }, []);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  // Fetch pending report count for the admin badge (silent failure)
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { reportsApi } = await import("@/lib/api/reports.api");
+        const { refreshAccessToken } = await import("@/lib/api-client");
+        // Try stored token first; fall back to refresh
+        let token = null;
+        try { token = await refreshAccessToken(); } catch { return; }
+        if (cancelled) return;
+        const data = await reportsApi.getReports({ status: "pending", page: 1, limit: 1 }, token);
+        if (!cancelled) setPendingReports(data.data.pagination.total);
+      } catch { /* silencieux */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -146,6 +166,26 @@ export default function Header() {
                   <MessageSquare className="h-3.5 w-3.5" />
                   Contacts
                 </Button>
+                {user.role === "admin" && (
+                  <button
+                    onClick={() => router.push("/dashboard/reports")}
+                    className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-[500] transition-all duration-150"
+                    style={{ color: "#8b91a8" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#f0f2f8"; e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "#8b91a8"; e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                    Signalements
+                    {pendingReports > 0 && (
+                      <span
+                        className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-[800]"
+                        style={{ background: "#fbbf24", color: "#1c1400" }}
+                      >
+                        {pendingReports > 99 ? "99+" : pendingReports}
+                      </span>
+                    )}
+                  </button>
+                )}
                 <Button size="sm" onClick={() => router.push("/posts/new")}>
                   <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
                   Nouvelle annonce
@@ -261,15 +301,29 @@ export default function Header() {
                 {[
                   { label: "Nouvelle annonce", icon: <Plus className="h-4 w-4" />, action: () => router.push("/posts/new"), accent: true },
                   { label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" />, action: () => router.push("/dashboard") },
-                  ...(user.role === "admin" ? [{ label: "Admin", icon: <Shield className="h-4 w-4" />, action: () => router.push("/admin") }] : []),
-                ].map(({ label, icon, action, accent }) => (
+                  ...(user.role === "admin" ? [
+                    { label: "Admin", icon: <Shield className="h-4 w-4" />, action: () => router.push("/admin") },
+                    {
+                      label: pendingReports > 0 ? `Signalements (${pendingReports})` : "Signalements",
+                      icon: <Flag className="h-4 w-4" />,
+                      action: () => router.push("/dashboard/reports"),
+                      badge: pendingReports > 0,
+                    },
+                  ] : []),
+                ].map(({ label, icon, action, accent, badge }) => (
                   <button
                     key={label}
                     onClick={action}
                     className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-[14px] font-[500] transition-colors"
                     style={{ color: accent ? "#4f8ef7" : "#8b91a8" }}
                   >
-                    {icon} {label}
+                    <span className="relative shrink-0">
+                      {icon}
+                      {badge && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full" style={{ background: "#fbbf24" }} />
+                      )}
+                    </span>
+                    {label}
                   </button>
                 ))}
 

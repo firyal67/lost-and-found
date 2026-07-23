@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import {
   Search, SlidersHorizontal, MapPin, Tag,
   PlusCircle, Loader2, ChevronLeft, ChevronRight,
-  Package, X, AlertCircle, Trash2, AlertTriangle, CheckCheck,
+  Package, X, AlertCircle, Trash2, AlertTriangle, CheckCheck, Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,57 @@ function ResolvedBadge() {
   );
 }
 
+function ArchivedBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-[600]"
+      style={{ color: "#8b91a8", background: "rgba(107,116,148,0.10)", border: "1px solid rgba(107,116,148,0.20)" }}>
+      <Archive className="h-3 w-3" /> Archivée
+    </span>
+  );
+}
+
+/* ── Archive confirmation modal (list page) ───────────────────────────────── */
+function ArchiveModal({ post, onConfirm, onCancel, isArchiving }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onCancel]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      role="dialog" aria-modal="true">
+      <div className="w-full max-w-[400px] rounded-xl p-6 animate-scale-in"
+        style={{ background: C.surface, border: "1px solid rgba(107,116,148,0.28)", boxShadow: "0 20px 48px rgba(0,0,0,0.55)" }}>
+        <div className="flex items-center justify-center w-12 h-12 rounded-xl mb-5 mx-auto"
+          style={{ background: "rgba(107,116,148,0.12)", border: "1px solid rgba(107,116,148,0.22)" }}>
+          <Archive className="h-5 w-5" style={{ color: "#8b91a8" }} />
+        </div>
+        <h3 className="font-sans font-[700] text-[18px] tracking-[-0.01em] text-center mb-2" style={{ color: C.ink }}>
+          Archiver l&apos;annonce ?
+        </h3>
+        <p className="text-[13px] text-center mb-1 leading-[1.55]" style={{ color: C.inkSec }}>
+          Elle disparaîtra de la liste publique mais restera conservée dans vos archives.
+        </p>
+        <p className="text-[14px] font-[600] text-center truncate px-4 mb-6" style={{ color: C.ink }}>
+          &ldquo;{post.title}&rdquo;
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} disabled={isArchiving}
+            className="flex-1 h-10 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40"
+            style={{ border: `1px solid ${C.border}`, color: C.inkSec, background: "transparent" }}>Annuler</button>
+          <button onClick={onConfirm} disabled={isArchiving}
+            className="flex-1 h-10 rounded-lg text-[13px] font-[600] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ background: "rgba(107,116,148,0.22)", color: C.ink, border: "1px solid rgba(107,116,148,0.32)" }}>
+            {isArchiving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Archivage…</> : <><Archive className="h-3.5 w-3.5" /> Archiver</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeleteModal({ post, onConfirm, onCancel, isDeleting }) {
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape") onCancel(); };
@@ -114,16 +165,19 @@ function DeleteModal({ post, onConfirm, onCancel, isDeleting }) {
   );
 }
 
-function PostCard({ post, currentUser, accessToken, onDeleted }) {
+function PostCard({ post, currentUser, accessToken, onDeleted, onArchived }) {
   const dispatch = useAppDispatch();
   const { accessToken: storeToken } = useAppSelector((s) => s.auth);
   const effectiveToken = accessToken || storeToken;
 
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [isDeleting,  setIsDeleting]  = useState(false);
+  const [showConfirm,   setShowConfirm]   = useState(false);
+  const [isDeleting,    setIsDeleting]    = useState(false);
+  const [showArchive,   setShowArchive]   = useState(false);
+  const [isArchiving,   setIsArchiving]   = useState(false);
   const isResolved = post.status === "resolved";
+  const isArchived = post.status === "archived";
 
-  const canDelete = currentUser &&
+  const canManage = currentUser &&
     (currentUser._id === post.author?._id?.toString() ||
      currentUser.id  === post.author?._id?.toString() ||
      currentUser.role === "admin");
@@ -153,19 +207,50 @@ function PostCard({ post, currentUser, accessToken, onDeleted }) {
       setIsDeleting(false);
     }
   };
+
+  const handleArchive = async () => {
+    setIsArchiving(true);
+    try {
+      const token = await getToken();
+      const data = await postsApi.archivePost(post._id, token);
+      toast.success("Annonce archivée.");
+      setShowArchive(false);
+      onArchived(data.data.post);
+    } catch (err) {
+      toast.error(err?.response?.message || "Erreur lors de l'archivage.");
+      setIsArchiving(false);
+    }
+  };
+
   return (
     <>
       <div className="group relative flex flex-col rounded-xl overflow-hidden transition-all duration-200"
-        style={{ background: C.surface, border: `1px solid ${C.border}`, opacity: isResolved ? 0.65 : 1 }}
-        onMouseEnter={(e) => { if (isResolved) return; e.currentTarget.style.borderColor = C.accentBdr; e.currentTarget.style.boxShadow = "0 8px 28px rgba(0,0,0,0.45)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+        style={{ background: C.surface, border: `1px solid ${C.border}`, opacity: (isResolved || isArchived) ? 0.65 : 1 }}
+        onMouseEnter={(e) => { if (isResolved || isArchived) return; e.currentTarget.style.borderColor = C.accentBdr; e.currentTarget.style.boxShadow = "0 8px 28px rgba(0,0,0,0.45)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }}>
-        {canDelete && (
-          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowConfirm(true); }}
-            title="Supprimer" className="absolute top-2.5 right-2.5 z-10 flex items-center justify-center w-8 h-8 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-150"
-            style={{ background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.22)", color: C.danger }}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+
+        {/* Action buttons — top-right, revealed on hover */}
+        {canManage && (
+          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150">
+            {/* Archive button — only when not already archived */}
+            {!isArchived && (
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowArchive(true); }}
+                title="Archiver"
+                className="flex items-center justify-center w-8 h-8 rounded-lg"
+                style={{ background: "rgba(107,116,148,0.15)", border: "1px solid rgba(107,116,148,0.28)", color: "#8b91a8" }}>
+                <Archive className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {/* Delete button */}
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowConfirm(true); }}
+              title="Supprimer"
+              className="flex items-center justify-center w-8 h-8 rounded-lg"
+              style={{ background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.22)", color: C.danger }}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         )}
+
         <Link href={`/posts/${post._id}`} className="flex flex-col flex-1">
           {post.photo ? (
             <div className="h-44 overflow-hidden shrink-0" style={{ background: C.elevated }}>
@@ -181,6 +266,7 @@ function PostCard({ post, currentUser, accessToken, onDeleted }) {
               <div className="flex items-center gap-2 flex-wrap">
                 <TypeBadge type={post.type} />
                 {isResolved && <ResolvedBadge />}
+                {isArchived && <ArchivedBadge />}
               </div>
               <span className="text-[12px] shrink-0" style={{ color: C.inkMut }}>{formattedDate}</span>
             </div>
@@ -201,7 +287,8 @@ function PostCard({ post, currentUser, accessToken, onDeleted }) {
           </div>
         </Link>
       </div>
-      {showConfirm && <DeleteModal post={post} onConfirm={handleDelete} onCancel={() => setShowConfirm(false)} isDeleting={isDeleting} />}
+      {showConfirm && <DeleteModal  post={post} onConfirm={handleDelete}  onCancel={() => setShowConfirm(false)} isDeleting={isDeleting} />}
+      {showArchive  && <ArchiveModal post={post} onConfirm={handleArchive} onCancel={() => setShowArchive(false)}  isArchiving={isArchiving} />}
     </>
   );
 }
@@ -273,6 +360,23 @@ function PostsPageContent() {
     setPosts((p) => p.filter((x) => x._id !== id));
     setPagination((p) => p ? { ...p, total: Math.max(0, p.total - 1) } : p);
   }, []);
+
+  const handleArchived = useCallback((updatedPost) => {
+    // If currently viewing active/all posts, replace in-place with updated data
+    // (the card will now show the ArchivedBadge). If filtering by active only,
+    // remove it from the list so the count stays consistent.
+    setPosts((p) => {
+      const replaced = p.map((x) => x._id === updatedPost._id ? updatedPost : x);
+      // If the current filter wouldn't include archived posts, drop it
+      if (!status || status === "") {
+        return replaced.filter((x) => x.status !== "archived");
+      }
+      return replaced;
+    });
+    if (!status || status === "") {
+      setPagination((p) => p ? { ...p, total: Math.max(0, p.total - 1) } : p);
+    }
+  }, [status]);
 
   const activeFilterCount = [type, objectType, city, dateFrom, dateTo, status].filter(Boolean).length;
 
@@ -350,6 +454,7 @@ function PostsPageContent() {
                 <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} style={{ ...selectStyle, width: "100%" }}>
                   <option value="">Actives uniquement</option>
                   <option value="resolved">Clôturées uniquement</option>
+                  <option value="archived">Archivées uniquement</option>
                   <option value="all">Toutes</option>
                 </select>
               </div>
@@ -394,7 +499,7 @@ function PostsPageContent() {
                 {posts.length === 0
                   ? <EmptyState hasFilters={hasFilters} onReset={resetFilters} />
                   : posts.map((post) => (
-                      <PostCard key={post._id} post={post} currentUser={user} accessToken={accessToken} onDeleted={handleDeleted} />
+                      <PostCard key={post._id} post={post} currentUser={user} accessToken={accessToken} onDeleted={handleDeleted} onArchived={handleArchived} />
                     ))
                 }
               </div>

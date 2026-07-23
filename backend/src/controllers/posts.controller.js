@@ -97,6 +97,8 @@ const getPosts = async (req, res, next) => {
       filter.status = 'resolved';
     } else if (req.query.status === 'matched') {
       filter.status = 'matched';
+    } else if (req.query.status === 'archived') {
+      filter.status = 'archived';
     } else if (req.query.status === 'closed') {
       // matched + resolved together
       filter.status = { $in: ['matched', 'resolved'] };
@@ -395,6 +397,50 @@ const updatePost = async (req, res, next) => {
 };
 
 /**
+ * PATCH /api/posts/:id/archive
+ * Archive une annonce — la retire de la liste publique mais la conserve en base.
+ * Peut être appliqué à n'importe quel statut (active, resolved, matched).
+ * Réservé à l'auteur ou à un admin.
+ * Requiert authenticateJWT.
+ */
+const archivePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const post = await Post.findById(id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
+    }
+
+    const isOwner = post.author.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Accès refusé.' });
+    }
+
+    if (post.status === 'archived') {
+      return res.status(409).json({ success: false, message: 'Cette annonce est déjà archivée.' });
+    }
+
+    post.status = 'archived';
+    // archivedAt est défini automatiquement par le hook pre('save') dans Post.model.js
+    await post.save();
+    await post.populate('author', 'name email');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Annonce archivée avec succès.',
+      data: { post },
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'ID invalide.' });
+    }
+    next(error);
+  }
+};
+
+/**
  * Retourne les annonces potentiellement correspondantes avec un score de compatibilité.
  * Utilisé lors de la création d'une annonce pour suggérer des correspondances.
  *
@@ -539,6 +585,6 @@ const getPostMatches = async (req, res, next) => {
 
 module.exports = {
   createPost, getPosts, getPostById,
-  deletePost, resolvePost, matchPost, updatePost,
+  deletePost, resolvePost, matchPost, updatePost, archivePost,
   getMatchingSuggestions, getPostMatches,
 };

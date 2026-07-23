@@ -8,6 +8,7 @@ import {
   Loader2, MessageSquare, Mail, Phone, Check, X,
   ChevronRight, Package, MapPin, Clock, AlertCircle,
   Inbox, Send as SendIcon, CheckCircle2, XCircle, RefreshCw,
+  MessagesSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { contactsApi } from "@/lib/api/contacts.api";
@@ -246,6 +247,30 @@ function ContactCard({ contact, userId, token, onUpdated }) {
                 : <><X className="h-3.5 w-3.5" /> Refuser</>}
             </button>
           </div>
+        )}
+
+        {/* Chat button — only for approved contacts */}
+        {contact.status === "approved" && (
+          <Link
+            href={`/dashboard/chat/${contact._id}`}
+            className="flex items-center justify-center gap-2 w-full h-10 rounded-lg text-[13px] font-[700] transition-all mt-1"
+            style={{
+              background: "rgba(79,142,247,0.10)",
+              border:     "1px solid rgba(79,142,247,0.28)",
+              color:      C.accent,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(79,142,247,0.18)";
+              e.currentTarget.style.borderColor = "rgba(79,142,247,0.50)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(79,142,247,0.10)";
+              e.currentTarget.style.borderColor = "rgba(79,142,247,0.28)";
+            }}
+          >
+            <MessagesSquare className="h-4 w-4" />
+            Ouvrir la conversation
+          </Link>
         )}
       </div>
     </div>

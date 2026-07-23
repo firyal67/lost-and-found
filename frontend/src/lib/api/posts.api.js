@@ -116,6 +116,19 @@ export const postsApi = {
   },
 
   /**
+   * PATCH /api/posts/:id/archive
+   * Archive une annonce (owner ou admin).
+   * @param {string} id    - ID de l'annonce
+   * @param {string} token - Access token JWT
+   */
+  archivePost: async (id, token) => {
+    return apiFetch(`/posts/${id}/archive`, {
+      method: "PATCH",
+      token,
+    });
+  },
+
+  /**
    * PATCH /api/posts/:id/resolve
    * Clôture une annonce résolue (owner ou admin).
    * @param {string} id    - ID de l'annonce

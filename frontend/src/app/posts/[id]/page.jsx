@@ -8,10 +8,11 @@ import {
   Loader2, MapPin, Calendar, Tag, User, Mail, Phone, MessageSquare,
   ArrowLeft, Package, Shield, Clock, AlertCircle, X, Send, CheckCircle2,
   Trash2, CheckCheck, Sparkles, ExternalLink, TrendingUp, ChevronDown, ChevronUp,
-  Link2, Pencil,
+  Link2, Pencil, Archive, Flag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { postsApi } from "@/lib/api/posts.api";
+import { reportsApi } from "@/lib/api/reports.api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setAccessToken } from "@/store/slices/authSlice";
 import PageContainer from "@/components/layout/PageContainer";
@@ -250,32 +251,45 @@ function RelatedMatchesPanel({ postId, postType }) {
 /* ── Status banner ────────────────────────────────────────────────────────── */
 function StatusBanner({ post }) {
   const { status, resolvedAt, matchedAt, matchedWith } = post;
-  if (status !== "resolved" && status !== "matched") return null;
+  if (status !== "resolved" && status !== "matched" && status !== "archived") return null;
 
   const isMatched  = status === "matched";
   const isResolved = status === "resolved";
+  const isArchived = status === "archived";
+
   const dateStr = isMatched
     ? (matchedAt  ? new Date(matchedAt).toLocaleDateString("fr-TN",  { day: "numeric", month: "long", year: "numeric" }) : null)
-    : (resolvedAt ? new Date(resolvedAt).toLocaleDateString("fr-TN", { day: "numeric", month: "long", year: "numeric" }) : null);
+    : isResolved
+    ? (resolvedAt ? new Date(resolvedAt).toLocaleDateString("fr-TN", { day: "numeric", month: "long", year: "numeric" }) : null)
+    : null;
+
+  const bg     = isMatched ? "rgba(79,142,247,0.08)"  : isArchived ? "rgba(107,116,148,0.10)" : "rgba(52,211,153,0.08)";
+  const border = isMatched ? "1px solid rgba(79,142,247,0.22)" : isArchived ? "1px solid rgba(107,116,148,0.22)" : "1px solid rgba(52,211,153,0.22)";
+  const color  = isMatched ? "#4f8ef7" : isArchived ? "#8b91a8" : "#34d399";
+
+  const icon = isMatched
+    ? <Link2    className="h-5 w-5 shrink-0 mt-0.5" style={{ color }} />
+    : isArchived
+    ? <Archive  className="h-5 w-5 shrink-0 mt-0.5" style={{ color }} />
+    : <CheckCheck className="h-5 w-5 shrink-0 mt-0.5" style={{ color }} />;
+
+  const title = isMatched
+    ? "Annonce mise en correspondance — objet retrouvé via la plateforme"
+    : isArchived
+    ? "Annonce archivée — conservée pour référence, non visible dans la liste"
+    : "Annonce clôturée — situation résolue";
+
+  const dateLabel = isMatched ? "Correspondance confirmée" : isResolved ? "Clôturée" : null;
 
   return (
-    <div
-      className="flex items-start gap-3 px-4 py-3.5 rounded-xl mb-6"
-      style={{
-        background: isMatched ? "rgba(79,142,247,0.08)"  : "rgba(52,211,153,0.08)",
-        border:     isMatched ? "1px solid rgba(79,142,247,0.22)" : "1px solid rgba(52,211,153,0.22)",
-      }}
-    >
-      {isMatched
-        ? <Link2    className="h-5 w-5 shrink-0 mt-0.5" style={{ color: "#4f8ef7" }} />
-        : <CheckCheck className="h-5 w-5 shrink-0 mt-0.5" style={{ color: "#34d399" }} />}
+    <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl mb-6"
+      style={{ background: bg, border }}>
+      {icon}
       <div className="min-w-0">
-        <p className="text-[14px] font-[700]" style={{ color: isMatched ? "#4f8ef7" : "#34d399" }}>
-          {isMatched  ? "Annonce mise en correspondance — objet retrouvé via la plateforme" : "Annonce clôturée — situation résolue"}
-        </p>
-        {dateStr && (
+        <p className="text-[14px] font-[700]" style={{ color }}>{title}</p>
+        {dateStr && dateLabel && (
           <p className="text-[12px] mt-0.5" style={{ color: "#6b7494" }}>
-            {isMatched ? "Correspondance confirmée" : "Clôturée"} le {dateStr}
+            {dateLabel} le {dateStr}
           </p>
         )}
         {isMatched && matchedWith && (
@@ -663,6 +677,294 @@ function DeleteModal({ post, onClose, onDeleted }) {
   );
 }
 
+/* ── Archive modal ────────────────────────────────────────────────────────── */
+function ArchiveModal({ post, onClose, onArchived }) {
+  const dispatch = useAppDispatch();
+  const { accessToken } = useAppSelector((s) => s.auth);
+  const [loading, setLoading] = useState(false);
+  const backdropRef = useRef(null);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const getToken = async () => {
+    if (accessToken) return accessToken;
+    const { refreshAccessToken } = await import("@/lib/api-client");
+    const token = await refreshAccessToken();
+    dispatch(setAccessToken(token));
+    return token;
+  };
+
+  const handleArchive = async () => {
+    setLoading(true);
+    try {
+      const token = await getToken();
+      const data  = await postsApi.archivePost(post._id, token);
+      toast.success("Annonce archivée.");
+      onArchived(data.data.post);
+    } catch (err) {
+      toast.error(err.response?.message || err.message || "Une erreur est survenue.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div ref={backdropRef} onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+      role="dialog" aria-modal="true" aria-label="Archiver l'annonce"
+    >
+      <div className="w-full max-w-[420px] rounded-xl p-6 animate-scale-in"
+        style={{ background: "#13161e", border: "1px solid rgba(107,116,148,0.30)", boxShadow: "0 20px 48px rgba(0,0,0,0.55)" }}>
+
+        {/* Icon */}
+        <div className="flex items-center justify-center w-14 h-14 rounded-2xl mb-5 mx-auto"
+          style={{ background: "rgba(107,116,148,0.12)", border: "1px solid rgba(107,116,148,0.25)" }}>
+          <Archive className="h-6 w-6" style={{ color: "#8b91a8" }} />
+        </div>
+
+        <h3 className="font-sans font-[700] text-[20px] tracking-[-0.02em] text-center mb-2"
+          style={{ color: "#f0f2f8" }}>
+          Archiver cette annonce ?
+        </h3>
+
+        <p className="text-[14px] font-[600] text-center truncate px-4 mb-4"
+          style={{ color: "#f0f2f8" }}>
+          &ldquo;{post.title}&rdquo;
+        </p>
+
+        {/* Info boxes */}
+        <div className="space-y-2.5 mb-6">
+          <div className="flex items-start gap-2.5 px-4 py-3 rounded-lg"
+            style={{ background: "rgba(107,116,148,0.08)", border: "1px solid rgba(107,116,148,0.18)" }}>
+            <Archive className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "#8b91a8" }} />
+            <div>
+              <p className="text-[13px] font-[600]" style={{ color: "#b8bdd0" }}>L&apos;annonce sera conservée</p>
+              <p className="text-[12px] mt-0.5 leading-[1.55]" style={{ color: "#6b7494" }}>
+                Elle disparaît de la liste publique mais reste accessible via son lien direct et dans vos archives personnelles.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5 px-4 py-3 rounded-lg"
+            style={{ background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.14)" }}>
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "#4f8ef7" }} />
+            <p className="text-[12px] leading-[1.55]" style={{ color: "#7aabfa" }}>
+              Contrairement à la suppression, vos données restent intactes et récupérables à tout moment.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} disabled={loading}
+            className="flex-1 h-10 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40"
+            style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#b8bdd0", background: "transparent" }}>
+            Annuler
+          </button>
+          <button onClick={handleArchive} disabled={loading}
+            className="flex-1 h-10 rounded-lg text-[13px] font-[700] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ background: "rgba(107,116,148,0.22)", color: "#f0f2f8", border: "1px solid rgba(107,116,148,0.32)" }}>
+            {loading
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Archivage…</>
+              : <><Archive className="h-3.5 w-3.5" /> Archiver</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Report modal ─────────────────────────────────────────────────────────── */
+const REPORT_REASONS = [
+  { value: "spam",          label: "Spam",                      description: "Contenu répétitif ou publicitaire non sollicité" },
+  { value: "scam",          label: "Arnaque / fraude",          description: "Tentative de tromperie ou d'escroquerie" },
+  { value: "misleading",    label: "Informations trompeuses",   description: "Contenu faux, inexact ou volontairement trompeur" },
+  { value: "inappropriate", label: "Contenu inapproprié",       description: "Propos offensants, hors-sujet ou irrespectueux" },
+  { value: "duplicate",     label: "Annonce en double",         description: "Cette annonce existe déjà sur la plateforme" },
+  { value: "other",         label: "Autre",                     description: "Autre raison non listée ci-dessus" },
+];
+
+function ReportModal({ post, onClose, alreadyReported }) {
+  const dispatch    = useAppDispatch();
+  const { accessToken } = useAppSelector((s) => s.auth);
+  const [reason,    setReason]  = useState("");
+  const [comment,   setComment] = useState("");
+  const [loading,   setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(alreadyReported);
+  const backdropRef = useRef(null);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const getToken = async () => {
+    if (accessToken) return accessToken;
+    const { refreshAccessToken } = await import("@/lib/api-client");
+    const token = await refreshAccessToken();
+    dispatch(setAccessToken(token));
+    return token;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!reason) return;
+    setLoading(true);
+    try {
+      const token = await getToken();
+      await reportsApi.createReport({ postId: post._id, reason, comment }, token);
+      setSubmitted(true);
+      toast.success("Signalement envoyé. Merci pour votre vigilance.");
+    } catch (err) {
+      const msg = err.response?.message || err.message || "Une erreur est survenue.";
+      if (err.status === 409) {
+        setSubmitted(true); // already reported — show success state
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div ref={backdropRef} onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(8px)" }}
+      role="dialog" aria-modal="true" aria-label="Signaler l'annonce"
+    >
+      <div className="w-full max-w-[460px] rounded-2xl overflow-hidden animate-scale-in"
+        style={{ background: "#13161e", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 56px rgba(0,0,0,0.60)" }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
+              style={{ background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.22)" }}>
+              <Flag className="h-4 w-4" style={{ color: "#fbbf24" }} />
+            </div>
+            <div>
+              <h2 className="font-sans font-[700] text-[16px] tracking-[-0.01em]" style={{ color: "#f0f2f8" }}>
+                Signaler l&apos;annonce
+              </h2>
+              <p className="text-[12px] truncate max-w-[280px] mt-0.5" style={{ color: "#6b7494" }}>{post.title}</p>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Fermer"
+            className="flex items-center justify-center w-8 h-8 rounded-lg"
+            style={{ color: "#6b7494" }}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5">
+          {submitted ? (
+            /* ── Success state ────────────────────────────────────────── */
+            <div className="flex flex-col items-center text-center gap-3 py-4">
+              <div className="flex items-center justify-center w-14 h-14 rounded-2xl"
+                style={{ background: "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.22)" }}>
+                <CheckCircle2 className="h-7 w-7" style={{ color: "#fbbf24" }} />
+              </div>
+              <div>
+                <p className="font-sans font-[700] text-[18px]" style={{ color: "#f0f2f8" }}>
+                  {alreadyReported ? "Déjà signalée" : "Signalement envoyé"}
+                </p>
+                <p className="text-[14px] mt-1 leading-[1.65]" style={{ color: "#8b91a8" }}>
+                  {alreadyReported
+                    ? "Vous avez déjà signalé cette annonce. Notre équipe l'examine."
+                    : "Merci pour votre vigilance. Notre équipe va examiner cette annonce dans les plus brefs délais."}
+                </p>
+              </div>
+              <button onClick={onClose}
+                className="mt-2 w-full h-10 rounded-lg text-[13px] font-[500] transition-all"
+                style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#b8bdd0", background: "transparent" }}>
+                Fermer
+              </button>
+            </div>
+          ) : (
+            /* ── Form ────────────────────────────────────────────────── */
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {/* Info note */}
+              <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg"
+                style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.16)" }}>
+                <Shield className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "#fbbf24" }} />
+                <p className="text-[12px] leading-[1.55]" style={{ color: "#b8a050" }}>
+                  Les signalements sont anonymes et examinés par notre équipe de modération.
+                  Les abus répétés peuvent entraîner la suspension de votre compte.
+                </p>
+              </div>
+
+              {/* Reason selection */}
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-[600]" style={{ color: "#b8bdd0" }}>
+                  Raison du signalement <span style={{ color: "#f87171" }}>*</span>
+                </p>
+                <div className="space-y-1.5">
+                  {REPORT_REASONS.map(({ value, label, description }) => (
+                    <label key={value}
+                      className="flex items-start gap-3 px-3.5 py-3 rounded-lg cursor-pointer transition-all"
+                      style={{
+                        background: reason === value ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.02)",
+                        border:     reason === value ? "1px solid rgba(251,191,36,0.30)" : "1px solid rgba(255,255,255,0.06)",
+                      }}>
+                      <input type="radio" name="reason" value={value}
+                        checked={reason === value}
+                        onChange={() => setReason(value)}
+                        className="mt-0.5 shrink-0 accent-yellow-400"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-[600]" style={{ color: reason === value ? "#fbbf24" : "#f0f2f8" }}>{label}</p>
+                        <p className="text-[11px] mt-0.5" style={{ color: "#6b7494" }}>{description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Optional comment */}
+              <div className="space-y-1.5">
+                <label htmlFor="report-comment" className="text-[12px] font-[600]" style={{ color: "#b8bdd0" }}>
+                  Précisions <span className="font-[400]" style={{ color: "#6b7494" }}>(optionnel)</span>
+                </label>
+                <textarea id="report-comment" rows={3} maxLength={500} value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Décrivez brièvement le problème…"
+                  className="w-full rounded-lg px-3.5 py-2.5 text-[13px] resize-none focus:outline-none transition-all"
+                  style={{ background: "#161921", border: "1px solid rgba(255,255,255,0.08)", color: "#f0f2f8" }}
+                  onFocus={(e) => { e.target.style.borderColor = "rgba(251,191,36,0.40)"; e.target.style.boxShadow = "0 0 0 3px rgba(251,191,36,0.08)"; }}
+                  onBlur={(e)  => { e.target.style.borderColor = "rgba(255,255,255,0.08)"; e.target.style.boxShadow = "none"; }}
+                />
+                <p className="text-right text-[11px]" style={{ color: "#6b7494" }}>{comment.length}/500</p>
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={onClose} disabled={loading}
+                  className="flex-1 h-10 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#b8bdd0", background: "transparent" }}>
+                  Annuler
+                </button>
+                <button type="submit" disabled={loading || !reason}
+                  className="flex-1 h-10 rounded-lg text-[13px] font-[700] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                  style={{ background: reason ? "rgba(251,191,36,0.18)" : "rgba(255,255,255,0.05)", color: reason ? "#fbbf24" : "#6b7494", border: reason ? "1px solid rgba(251,191,36,0.30)" : "1px solid rgba(255,255,255,0.06)" }}>
+                  {loading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Envoi…</>
+                    : <><Flag className="h-3.5 w-3.5" /> Envoyer le signalement</>}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Mark status modal (matched OR resolved) ──────────────────────────────── */
 function MarkStatusModal({ post, onClose, onUpdated }) {
   const dispatch = useAppDispatch();
@@ -932,6 +1234,9 @@ export default function PostDetailPage() {
   const [showContact,       setShowContact]       = useState(false);
   const [showDeleteModal,   setShowDeleteModal]   = useState(false);
   const [showMarkStatusModal, setShowMarkStatusModal] = useState(false);
+  const [showArchiveModal,  setShowArchiveModal]  = useState(false);
+  const [showReportModal,   setShowReportModal]   = useState(false);
+  const [alreadyReported,   setAlreadyReported]   = useState(false);
 
   useEffect(() => {
     if (!params?.id) return;
@@ -947,6 +1252,25 @@ export default function PostDetailPage() {
       }
     })();
   }, [params?.id]);
+
+  // Check if the current user has already reported this post (silent — no toast on failure)
+  useEffect(() => {
+    if (!params?.id || !user) return;
+    (async () => {
+      try {
+        let token = accessToken;
+        if (!token) {
+          const { refreshAccessToken } = await import("@/lib/api-client");
+          token = await refreshAccessToken();
+          dispatch(setAccessToken(token));
+        }
+        const data = await reportsApi.getReportForPost(params.id, token);
+        if (data?.data?.reported) setAlreadyReported(true);
+      } catch {
+        // silencieux — ne pas bloquer la page
+      }
+    })();
+  }, [params?.id, user, accessToken, dispatch]);
 
   if (loading || isHydrating) {
     return (
@@ -977,6 +1301,7 @@ export default function PostDetailPage() {
   const canManage  = isOwner || isAdmin;
   const canContact = user && !isOwner;
   const isClosed   = post.status === "resolved" || post.status === "matched";
+  const isArchived = post.status === "archived";
 
   const formattedDate = post.date
     ? new Date(post.date).toLocaleDateString("fr-TN", { day: "numeric", month: "long", year: "numeric" })
@@ -990,6 +1315,8 @@ export default function PostDetailPage() {
       {showContact          && <ContactModal    post={post} onClose={() => setShowContact(false)} />}
       {showDeleteModal      && <DeleteModal     post={post} onClose={() => setShowDeleteModal(false)} onDeleted={() => router.push("/posts")} />}
       {showMarkStatusModal  && <MarkStatusModal post={post} onClose={() => setShowMarkStatusModal(false)} onUpdated={(updated) => setPost(updated)} />}
+      {showArchiveModal     && <ArchiveModal    post={post} onClose={() => setShowArchiveModal(false)}  onArchived={(updated) => setPost(updated)} />}
+      {showReportModal      && <ReportModal     post={post} onClose={() => setShowReportModal(false)}   alreadyReported={alreadyReported} />}
 
       <div className="min-h-screen py-8" style={{ background: "#0d0f14" }}>
         <PageContainer maxWidth="4xl">
@@ -1006,7 +1333,7 @@ export default function PostDetailPage() {
           <StatusBanner post={post} />
 
           {/* ── Matching suggestions (only for active posts) ─────────── */}
-          {!isClosed && (
+          {!isClosed && !isArchived && (
             <RelatedMatchesPanel postId={post._id} postType={post.type} />
           )}
 
@@ -1038,6 +1365,12 @@ export default function PostDetailPage() {
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-[600]"
                       style={{ color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.18)" }}>
                       <CheckCheck className="h-3 w-3" /> Clôturée
+                    </span>
+                  )}
+                  {post.status === "archived" && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-[600]"
+                      style={{ color: "#8b91a8", background: "rgba(107,116,148,0.10)", border: "1px solid rgba(107,116,148,0.22)" }}>
+                      <Archive className="h-3 w-3" /> Archivée
                     </span>
                   )}
                 </div>
@@ -1196,12 +1529,36 @@ export default function PostDetailPage() {
                   </Link>
                 )}
 
+                {/* Archive button — owner/admin on any non-archived post */}
+                {canManage && !isArchived && (
+                  <button onClick={() => setShowArchiveModal(true)}
+                    className="inline-flex items-center justify-center gap-2 h-[42px] px-4 rounded-lg text-[13px] font-[600] transition-all"
+                    style={{ background: "rgba(107,116,148,0.08)", color: "#8b91a8", border: "1px solid rgba(107,116,148,0.22)" }}>
+                    <Archive className="h-4 w-4" /> Archiver
+                  </button>
+                )}
+
                 {/* Delete button */}
                 {canManage && (
                   <button onClick={() => setShowDeleteModal(true)}
                     className="inline-flex items-center justify-center gap-2 h-[42px] px-4 rounded-lg text-[13px] font-[600] transition-all"
                     style={{ background: "rgba(248,113,113,0.08)", color: "#f87171", border: "1px solid rgba(248,113,113,0.20)" }}>
                     <Trash2 className="h-4 w-4" /> Supprimer
+                  </button>
+                )}
+
+                {/* Report button — available to any logged-in non-owner user */}
+                {user && !isOwner && (
+                  <button onClick={() => setShowReportModal(true)}
+                    title={alreadyReported ? "Vous avez déjà signalé cette annonce" : "Signaler cette annonce"}
+                    className="inline-flex items-center justify-center gap-2 h-[42px] px-4 rounded-lg text-[13px] font-[600] transition-all"
+                    style={{
+                      background: alreadyReported ? "rgba(251,191,36,0.10)" : "rgba(255,255,255,0.03)",
+                      color:      alreadyReported ? "#fbbf24"               : "#6b7494",
+                      border:     alreadyReported ? "1px solid rgba(251,191,36,0.25)" : "1px solid rgba(255,255,255,0.08)",
+                    }}>
+                    <Flag className="h-4 w-4" />
+                    {alreadyReported ? "Signalée" : "Signaler"}
                   </button>
                 )}
 

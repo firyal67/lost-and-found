@@ -165,6 +165,12 @@ const postSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // ── Date d'archivage ──────────────────────────────────────────────────────
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -180,7 +186,7 @@ postSchema.index({ city: 1, objectType: 1, date: -1 });
 // Index texte pour la recherche full-text sur titre et description
 postSchema.index({ title: 'text', description: 'text' });
 
-// ── Hook : marque resolvedAt / matchedAt automatiquement ──────────────────────
+// ── Hook : marque resolvedAt / matchedAt / archivedAt automatiquement ─────────
 postSchema.pre('save', function (next) {
   if (this.isModified('status')) {
     if (this.status === 'resolved' && !this.resolvedAt) {
@@ -188,6 +194,9 @@ postSchema.pre('save', function (next) {
     }
     if (this.status === 'matched' && !this.matchedAt) {
       this.matchedAt = new Date();
+    }
+    if (this.status === 'archived' && !this.archivedAt) {
+      this.archivedAt = new Date();
     }
   }
   next();

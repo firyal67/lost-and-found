@@ -63,4 +63,17 @@ export const reportsApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  /**
+   * DELETE /api/reports/:id/post
+   * Supprime l'annonce liée au signalement et clôture tous ses signalements (admin uniquement).
+   * @param {string} id    - ID du signalement
+   * @param {string} token - Access token JWT
+   */
+  deleteReportedPost: async (id, token) => {
+    return apiFetch(`/reports/${id}/post`, {
+      method: "DELETE",
+      token,
+    });
+  },
 };

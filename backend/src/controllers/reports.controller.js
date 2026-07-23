@@ -200,10 +200,67 @@ const getReportForPost = async (req, res, next) => {
   }
 };
 
+/**
+ * DELETE /api/reports/:id/post
+ * Supprime l'annonce liée à un signalement et clôture tous les signalements
+ * relatifs à cette annonce (status → actioned).
+ * Admin uniquement. Requiert authenticateJWT.
+ */
+const deleteReportedPost = async (req, res, next) => {
+  try {
+    const { id } = req.params; // ID du signalement
+
+    // Charger le signalement pour récupérer le post lié
+    const report = await Report.findById(id);
+    if (!report) {
+      return res.status(404).json({ success: false, message: 'Signalement introuvable.' });
+    }
+
+    const postId = report.post;
+    if (!postId) {
+      return res.status(400).json({ success: false, message: "Ce signalement n'est lié à aucune annonce." });
+    }
+
+    // Vérifier que l'annonce existe encore
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Annonce introuvable ou déjà supprimée.' });
+    }
+
+    // Supprimer l'annonce
+    await post.deleteOne();
+
+    // Clôturer tous les signalements liés à cette annonce en une seule requête
+    await Report.updateMany(
+      { post: postId },
+      {
+        $set: {
+          status:     'actioned',
+          adminNote:  'Annonce supprimée par un administrateur suite à un signalement.',
+          reviewedBy: req.user._id,
+          reviewedAt: new Date(),
+        },
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Annonce supprimée et signalements clôturés.',
+      data: { postId },
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'ID invalide.' });
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   createReport,
   getMyReports,
   getReports,
   updateReportStatus,
   getReportForPost,
+  deleteReportedPost,
 };

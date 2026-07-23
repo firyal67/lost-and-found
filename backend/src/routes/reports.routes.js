@@ -6,6 +6,7 @@ const {
   getReports,
   updateReportStatus,
   getReportForPost,
+  deleteReportedPost,
 } = require('../controllers/reports.controller');
 const validate       = require('../middleware/validate.middleware');
 const { authenticateJWT, authorizeRole } = require('../middleware/auth.middleware');
@@ -39,6 +40,14 @@ router.patch(
   authorizeRole('admin'),
   validate(updateReportStatusValidator),
   updateReportStatus
+);
+
+// DELETE /api/reports/:id/post — Supprimer l'annonce signalée + clôturer tous ses signalements (admin uniquement)
+router.delete(
+  '/:id/post',
+  authenticateJWT,
+  authorizeRole('admin'),
+  deleteReportedPost
 );
 
 module.exports = router;

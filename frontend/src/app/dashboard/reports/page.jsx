@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import {
   Loader2, Flag, AlertCircle, RefreshCw, ChevronLeft, ChevronRight,
   ExternalLink, CheckCircle2, XCircle, Eye, Clock, ShieldAlert,
-  MapPin, X, Archive, CheckCheck,
+  MapPin, X, Archive, CheckCheck, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportsApi } from "@/lib/api/reports.api";
@@ -192,26 +192,102 @@ function AdminNoteModal({ report, onClose, onUpdated, getToken }) {
   );
 }
 
-/* ── ReportCard ──────────────────────────────────────────────────────────── */
-function ReportCard({ report, getToken, onUpdated }) {
-  const [showModal, setShowModal] = useState(false);
-  const [dismissing, setDismissing] = useState(false);
-  const [archiving,  setArchiving]  = useState(false);
+/* ── DeletePostConfirmModal ───────────────────────────────────────────────── */
+function DeletePostConfirmModal({ report, onClose, onConfirm, loading }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
 
-  const post        = report.post;
-  const reporter    = report.reporter;
-  const reviewedBy  = report.reviewedBy;
-  const createdAt   = new Date(report.createdAt).toLocaleDateString("fr-TN", { day: "numeric", month: "short", year: "numeric" });
-  const reviewedAt  = report.reviewedAt
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog" aria-modal="true" aria-label="Confirmer la suppression">
+      <div className="w-full max-w-[420px] rounded-2xl p-6 animate-scale-in"
+        style={{ background: C.surface, border: "1px solid rgba(248,113,113,0.28)", boxShadow: "0 24px 56px rgba(0,0,0,0.65)" }}>
+
+        {/* Icon */}
+        <div className="flex items-center justify-center w-14 h-14 rounded-2xl mb-5 mx-auto"
+          style={{ background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.22)" }}>
+          <Trash2 className="h-6 w-6" style={{ color: C.danger }} />
+        </div>
+
+        <h3 className="font-sans font-[700] text-[19px] tracking-[-0.02em] text-center mb-2" style={{ color: C.ink }}>
+          Supprimer cette annonce ?
+        </h3>
+        <p className="text-[14px] font-[600] text-center truncate px-4 mb-3" style={{ color: C.ink }}>
+          &ldquo;{report.post?.title ?? "—"}&rdquo;
+        </p>
+
+        {/* Warning boxes */}
+        <div className="space-y-2.5 mb-6">
+          <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg"
+            style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)" }}>
+            <Trash2 className="h-4 w-4 shrink-0 mt-0.5" style={{ color: C.danger }} />
+            <div>
+              <p className="text-[13px] font-[600]" style={{ color: C.danger }}>Action irréversible</p>
+              <p className="text-[12px] mt-0.5 leading-[1.55]" style={{ color: "#8b91a8" }}>
+                L&apos;annonce sera définitivement supprimée. Cette action ne peut pas être annulée.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg"
+            style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.16)" }}>
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" style={{ color: C.success }} />
+            <p className="text-[12px] leading-[1.55]" style={{ color: "#6b9e8a" }}>
+              Tous les signalements liés à cette annonce seront automatiquement clôturés.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} disabled={loading}
+            className="flex-1 h-10 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40"
+            style={{ border: `1px solid ${C.border}`, color: C.inkSec, background: "transparent" }}>
+            Annuler
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 h-10 rounded-lg text-[13px] font-[700] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ background: C.danger, color: "#fff" }}>
+            {loading
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Suppression…</>
+              : <><Trash2 className="h-3.5 w-3.5" /> Supprimer</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── ReportCard ──────────────────────────────────────────────────────────── */
+function ReportCard({ report, getToken, onUpdated, onDeleted }) {
+  const [showModal,         setShowModal]         = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [dismissing,        setDismissing]        = useState(false);
+  const [archiving,         setArchiving]         = useState(false);
+  const [deleting,          setDeleting]          = useState(false);
+
+  const post       = report.post;
+  const reporter   = report.reporter;
+  const reviewedBy = report.reviewedBy;
+  const createdAt  = new Date(report.createdAt).toLocaleDateString("fr-TN", { day: "numeric", month: "short", year: "numeric" });
+  const reviewedAt = report.reviewedAt
     ? new Date(report.reviewedAt).toLocaleDateString("fr-TN", { day: "numeric", month: "short", year: "numeric" })
     : null;
 
-  const handleDismiss = async () => {
+  // Approve — report is unfounded, post is valid, dismiss the report
+  const handleApprove = async () => {
     setDismissing(true);
     try {
       const token = await getToken();
-      const data = await reportsApi.updateReportStatus(report._id, { status: "dismissed" }, token);
-      toast.success("Signalement rejeté.");
+      const data  = await reportsApi.updateReportStatus(
+        report._id,
+        { status: "dismissed", adminNote: "Annonce vérifiée et approuvée par un administrateur." },
+        token
+      );
+      toast.success("Annonce approuvée — signalement rejeté.");
       onUpdated(data.data.report);
     } catch (err) {
       toast.error(err.response?.message || "Erreur.");
@@ -220,14 +296,19 @@ function ReportCard({ report, getToken, onUpdated }) {
     }
   };
 
+  // Archive — keep post but hide it from public listing
   const handleArchivePost = async () => {
     if (!post?._id) return;
     setArchiving(true);
     try {
       const token = await getToken();
       await postsApi.archivePost(post._id, token);
-      const data = await reportsApi.updateReportStatus(report._id, { status: "actioned", adminNote: "Annonce archivée" }, token);
-      toast.success("Annonce archivée, signalement marqué comme traité.");
+      const data  = await reportsApi.updateReportStatus(
+        report._id,
+        { status: "actioned", adminNote: "Annonce archivée suite à un signalement." },
+        token
+      );
+      toast.success("Annonce archivée — signalement traité.");
       onUpdated(data.data.report);
     } catch (err) {
       toast.error(err.response?.message || "Erreur.");
@@ -236,11 +317,37 @@ function ReportCard({ report, getToken, onUpdated }) {
     }
   };
 
+  // Delete — permanently remove the post and close all its reports
+  const handleDeletePost = async () => {
+    setDeleting(true);
+    try {
+      const token = await getToken();
+      await reportsApi.deleteReportedPost(report._id, token);
+      toast.success("Annonce supprimée — tous les signalements clôturés.");
+      setShowDeleteConfirm(false);
+      onDeleted(report._id, post?._id);
+    } catch (err) {
+      toast.error(err.response?.message || "Erreur lors de la suppression.");
+      setDeleting(false);
+    }
+  };
+
+  const busy = dismissing || archiving || deleting;
+
   return (
     <>
       {showModal && (
         <AdminNoteModal report={report} getToken={getToken} onClose={() => setShowModal(false)} onUpdated={onUpdated} />
       )}
+      {showDeleteConfirm && (
+        <DeletePostConfirmModal
+          report={report}
+          loading={deleting}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDeletePost}
+        />
+      )}
+
       <div className="rounded-xl overflow-hidden transition-all"
         style={{ background: C.surface, border: `1px solid ${C.border}` }}>
         {/* Top stripe */}
@@ -267,6 +374,12 @@ function ReportCard({ report, getToken, onUpdated }) {
                       </span>
                     )}
                     {post.objectType && <span className="text-[11px]" style={{ color: C.inkMut }}>{OBJECT_TYPE_LABELS[post.objectType] ?? post.objectType}</span>}
+                    {post.status === "archived" && (
+                      <span className="text-[10px] font-[600] px-2 py-0.5 rounded-full"
+                        style={{ color: C.inkMut, background: "rgba(107,116,148,0.12)", border: "1px solid rgba(107,116,148,0.22)" }}>
+                        Archivée
+                      </span>
+                    )}
                   </div>
                   <p className="text-[14px] font-[600] leading-snug truncate" style={{ color: C.ink }}>{post.title}</p>
                   {post.city && (
@@ -289,12 +402,12 @@ function ReportCard({ report, getToken, onUpdated }) {
           </div>
 
           {/* Reporter */}
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px]"
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] flex-wrap"
             style={{ background: C.elevated, border: `1px solid ${C.borderS}` }}>
             <Flag className="h-3.5 w-3.5 shrink-0" style={{ color: C.inkMut }} />
             <span style={{ color: C.inkMut }}>Signalé par</span>
             <span className="font-[600]" style={{ color: C.inkSec }}>{reporter?.name ?? "Utilisateur inconnu"}</span>
-            {reporter?.email && <span style={{ color: C.inkMut }}>— {reporter.email}</span>}
+            {reporter?.email && <span style={{ color: C.inkMut }}>· {reporter.email}</span>}
           </div>
 
           {/* Comment */}
@@ -318,31 +431,50 @@ function ReportCard({ report, getToken, onUpdated }) {
             </div>
           )}
 
-          {/* Quick actions */}
-          {report.status === "pending" && (
-            <div className="flex gap-2">
-              <button onClick={handleDismiss} disabled={dismissing || archiving}
-                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-[700] transition-all disabled:opacity-40"
-                style={{ background: "rgba(107,116,148,0.08)", color: C.inkMut, border: "1px solid rgba(107,116,148,0.20)" }}
-                onMouseEnter={(e) => { if (!dismissing && !archiving) e.currentTarget.style.background = "rgba(107,116,148,0.14)"; }}
-                onMouseLeave={(e) => { if (!dismissing && !archiving) e.currentTarget.style.background = "rgba(107,116,148,0.08)"; }}>
-                {dismissing ? <><Loader2 className="h-3 w-3 animate-spin" /> Rejet…</> : <><XCircle className="h-3 w-3" /> Rejeter</>}
-              </button>
-              {post?._id && post.status !== "archived" && (
-                <button onClick={handleArchivePost} disabled={dismissing || archiving}
+          {/* Quick actions — only on pending reports with a live post */}
+          {report.status === "pending" && post && (
+            <div className="space-y-2 pt-1">
+              {/* Row 1: Approve + Archive */}
+              <div className="flex gap-2">
+                {/* Approve — post is valid, dismiss the report */}
+                <button onClick={handleApprove} disabled={busy}
                   className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-[700] transition-all disabled:opacity-40"
-                  style={{ background: "rgba(251,146,60,0.08)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.20)" }}
-                  onMouseEnter={(e) => { if (!dismissing && !archiving) e.currentTarget.style.background = "rgba(251,146,60,0.14)"; }}
-                  onMouseLeave={(e) => { if (!dismissing && !archiving) e.currentTarget.style.background = "rgba(251,146,60,0.08)"; }}>
-                  {archiving ? <><Loader2 className="h-3 w-3 animate-spin" /> Archivage…</> : <><Archive className="h-3 w-3" /> Archiver l&apos;annonce</>}
+                  style={{ background: "rgba(52,211,153,0.08)", color: C.success, border: "1px solid rgba(52,211,153,0.22)" }}
+                  onMouseEnter={(e) => { if (!busy) e.currentTarget.style.background = "rgba(52,211,153,0.14)"; }}
+                  onMouseLeave={(e) => { if (!busy) e.currentTarget.style.background = "rgba(52,211,153,0.08)"; }}>
+                  {dismissing
+                    ? <><Loader2 className="h-3 w-3 animate-spin" /> Approbation…</>
+                    : <><CheckCircle2 className="h-3 w-3" /> Approuver</>}
                 </button>
-              )}
+
+                {/* Archive — hide from public but keep data */}
+                {post.status !== "archived" && (
+                  <button onClick={handleArchivePost} disabled={busy}
+                    className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-[700] transition-all disabled:opacity-40"
+                    style={{ background: "rgba(251,146,60,0.08)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.22)" }}
+                    onMouseEnter={(e) => { if (!busy) e.currentTarget.style.background = "rgba(251,146,60,0.14)"; }}
+                    onMouseLeave={(e) => { if (!busy) e.currentTarget.style.background = "rgba(251,146,60,0.08)"; }}>
+                    {archiving
+                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Archivage…</>
+                      : <><Archive className="h-3 w-3" /> Archiver</>}
+                  </button>
+                )}
+              </div>
+
+              {/* Row 2: Delete — full width, red, requires confirmation */}
+              <button onClick={() => setShowDeleteConfirm(true)} disabled={busy}
+                className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg text-[11px] font-[700] transition-all disabled:opacity-40"
+                style={{ background: "rgba(248,113,113,0.08)", color: C.danger, border: "1px solid rgba(248,113,113,0.22)" }}
+                onMouseEnter={(e) => { if (!busy) e.currentTarget.style.background = "rgba(248,113,113,0.14)"; }}
+                onMouseLeave={(e) => { if (!busy) e.currentTarget.style.background = "rgba(248,113,113,0.08)"; }}>
+                <Trash2 className="h-3 w-3" /> Supprimer l&apos;annonce
+              </button>
             </div>
           )}
 
           {/* Full modal button */}
           <button onClick={() => setShowModal(true)}
-            className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-[12px] font-[700] transition-all mt-1"
+            className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-[12px] font-[700] transition-all"
             style={{ background: "rgba(79,142,247,0.08)", color: C.accent, border: "1px solid rgba(79,142,247,0.22)" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(79,142,247,0.16)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(79,142,247,0.08)"; }}>
@@ -468,7 +600,16 @@ export default function ReportsDashboardPage() {
 
   const handleUpdated = useCallback((updated) => {
     setReports((prev) => prev.map((r) => (r._id === updated._id ? updated : r)));
-    // Refresh counts after any status change
+    fetchCounts();
+  }, [fetchCounts]);
+
+  // Remove ALL cards whose post was deleted (backend closes every report for that post)
+  const handleDeleted = useCallback((reportId, postId) => {
+    setReports((prev) => prev.filter((r) =>
+      // remove the acted-upon report and any other report for the same post
+      r._id !== reportId && !(postId && r.post?._id?.toString() === postId?.toString())
+    ));
+    setPagination((p) => p ? { ...p, total: Math.max(0, p.total - 1) } : p);
     fetchCounts();
   }, [fetchCounts]);
 
@@ -571,6 +712,7 @@ export default function ReportsDashboardPage() {
                     report={report}
                     getToken={getToken}
                     onUpdated={handleUpdated}
+                    onDeleted={handleDeleted}
                   />
                 ))}
               </div>

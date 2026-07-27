@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield, MessageSquare, Flag } from "lucide-react";
+import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield, MessageSquare, Flag, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logoutUser } from "@/store/slices/authSlice";
@@ -185,6 +185,16 @@ export default function Header() {
                       </span>
                     )}
                   </button>
+                  <button
+                    onClick={() => router.push("/dashboard/admin/users")}
+                    className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-[500] transition-all duration-150"
+                    style={{ color: "#8b91a8" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#f0f2f8"; e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "#8b91a8"; e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    Utilisateurs
+                  </button>
                 )}
                 <Button size="sm" onClick={() => router.push("/posts/new")}>
                   <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -308,6 +318,16 @@ export default function Header() {
                       icon: <Flag className="h-4 w-4" />,
                       action: () => router.push("/dashboard/reports"),
                       badge: pendingReports > 0,
+                    },
+                    {
+                      label: "Utilisateurs",
+                      icon: <Users className="h-4 w-4" />,
+                      action: () => router.push("/dashboard/admin/users"),
+                    },
+                    {
+                      label: "Métriques",
+                      icon: <Shield className="h-4 w-4" />,
+                      action: () => router.push("/dashboard/admin/metrics"),
                     },
                   ] : []),
                 ].map(({ label, icon, action, accent, badge }) => (

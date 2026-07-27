@@ -10,6 +10,7 @@ const postRoutes    = require('./routes/posts.routes');
 const contactRoutes = require('./routes/contacts.routes');
 const uploadRoutes  = require('./routes/upload.routes');
 const reportRoutes  = require('./routes/reports.routes');
+const adminRoutes   = require('./routes/admin.routes');
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/contacts', contactRoutes);
 app.use('/api/upload',   uploadRoutes);
 app.use('/api/chat',     require('./routes/chat.routes'));
 app.use('/api/reports',  reportRoutes);
+app.use('/api/admin',    adminRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search, SlidersHorizontal, MapPin, Tag,
   PlusCircle, Loader2, ChevronLeft, ChevronRight,
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { postsApi } from "@/lib/api/posts.api";
 import PageContainer from "@/components/layout/PageContainer";
+import Pagination from "@/components/ui/Pagination";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setAccessToken } from "@/store/slices/authSlice";
 import toast from "react-hot-toast";
@@ -229,9 +230,9 @@ function PostCard({ post, currentUser, accessToken, onDeleted, onArchived }) {
         onMouseEnter={(e) => { if (isResolved || isArchived) return; e.currentTarget.style.borderColor = C.accentBdr; e.currentTarget.style.boxShadow = "0 8px 28px rgba(0,0,0,0.45)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }}>
 
-        {/* Action buttons — top-right, revealed on hover */}
+        {/* Action buttons — always visible on touch, hover-only on pointer devices */}
         {canManage && (
-          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150">
+          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-150">
             {/* Archive button — only when not already archived */}
             {!isArchived && (
               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowArchive(true); }}
@@ -311,6 +312,7 @@ function EmptyState({ hasFilters, onReset }) {
 }
 
 function PostsPageContent() {
+  const router       = useRouter();
   const searchParams = useSearchParams();
   const { user, accessToken } = useAppSelector((s) => s.auth);
 
@@ -322,14 +324,33 @@ function PostsPageContent() {
   const [dateTo,      setDateTo]      = useState(searchParams.get("dateTo")     ?? "");
   const [sort,        setSort]        = useState(searchParams.get("sort")       ?? "-date");
   const [status,      setStatus]      = useState(searchParams.get("status")     ?? "");
-  const [page,        setPage]        = useState(Number(searchParams.get("page") ?? 1));
+  const [page,        setPage]        = useState(Number(searchParams.get("page")  ?? 1));
+  const [limit,       setLimit]       = useState(Number(searchParams.get("limit") ?? 12));
   const [showFilters, setShowFilters] = useState(false);
   const [posts,       setPosts]       = useState([]);
   const [pagination,  setPagination]  = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
 
+  const gridRef = useRef(null);
   const hasFilters = Boolean(q || type || objectType || city || dateFrom || dateTo || status);
+
+  // Sync state → URL so pagination is shareable / back-button works
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (q)          params.set("q",          q);
+    if (type)       params.set("type",       type);
+    if (objectType) params.set("objectType", objectType);
+    if (city)       params.set("city",       city);
+    if (dateFrom)   params.set("dateFrom",   dateFrom);
+    if (dateTo)     params.set("dateTo",     dateTo);
+    if (status)     params.set("status",     status);
+    if (sort !== "-date") params.set("sort", sort);
+    if (page > 1)   params.set("page",       String(page));
+    if (limit !== 12) params.set("limit",    String(limit));
+    router.replace(`/posts${params.toString() ? `?${params}` : ""}`, { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, type, objectType, city, dateFrom, dateTo, status, sort, page, limit]);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true); setError(null);
@@ -342,19 +363,28 @@ function PostsPageContent() {
       if (dateFrom)   params.set("dateFrom",   dateFrom);
       if (dateTo)     params.set("dateTo",     dateTo);
       if (status)     params.set("status",     status);
-      params.set("page", page); params.set("limit", "12"); params.set("sort", sort);
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+      params.set("sort", sort);
       const data = await postsApi.getPosts(params.toString());
       setPosts(data.data.posts); setPagination(data.data.pagination);
     } catch { setError("Impossible de charger les annonces."); }
     finally   { setLoading(false); }
-  }, [q, type, objectType, city, page, sort, dateFrom, dateTo, status]);
+  }, [q, type, objectType, city, page, limit, sort, dateFrom, dateTo, status]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
   const applyFilters = (e) => { e?.preventDefault(); setPage(1); };
   const resetFilters = () => {
     setQ(""); setType(""); setObjectType(""); setCity("");
-    setDateFrom(""); setDateTo(""); setSort("-date"); setStatus(""); setPage(1);
+    setDateFrom(""); setDateTo(""); setSort("-date"); setStatus("");
+    setPage(1); setLimit(12);
+  };
+
+  // Page change: update state + scroll grid into view
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const handleDeleted = useCallback((id) => {
     setPosts((p) => p.filter((x) => x._id !== id));
@@ -398,36 +428,38 @@ function PostsPageContent() {
           </div>
 
           {/* Search + sort */}
-          <div className="pb-5 flex flex-col sm:flex-row gap-2">
-            <form onSubmit={applyFilters} className="flex flex-1 gap-2">
-              <div className="relative flex-1">
+          <div className="pb-5 flex flex-col gap-2">
+            <form onSubmit={applyFilters} className="flex gap-2">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: C.inkMut }} />
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher une annonce…" className="pl-9" />
+                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher une annonce…" className="pl-9 w-full" />
               </div>
-              <Button type="submit" variant="secondary" className="h-[42px] px-4 gap-1.5 shrink-0">
+              <Button type="submit" variant="secondary" className="h-[42px] px-3 sm:px-4 gap-1.5 shrink-0">
                 <Search className="h-3.5 w-3.5" /><span className="hidden sm:inline">Chercher</span>
               </Button>
             </form>
-            <select value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}
-              style={{ ...selectStyle, width: "auto", paddingRight: "32px" }}>
-              <option value="-date">Plus récent</option>
-              <option value="date">Plus ancien</option>
-            </select>
-            <button type="button" onClick={() => setShowFilters((v) => !v)}
-              className="h-[42px] px-4 gap-2 rounded-[10px] text-[13px] font-[500] flex items-center transition-all duration-150"
-              style={{ border: showFilters ? `1px solid ${C.accent}` : `1px solid ${C.border}`, background: showFilters ? C.accentSub : "transparent", color: showFilters ? C.accent : C.inkSec }}>
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Filtres
-              {activeFilterCount > 0 && (
-                <span className="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-[700]"
-                  style={{ background: C.accent, color: "#fff" }}>{activeFilterCount}</span>
-              )}
-            </button>
+            <div className="flex gap-2">
+              <select value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}
+                style={{ ...selectStyle, flex: 1, minWidth: 0 }}>
+                <option value="-date">Plus récent</option>
+                <option value="date">Plus ancien</option>
+              </select>
+              <button type="button" onClick={() => setShowFilters((v) => !v)}
+                className="h-[42px] px-3 sm:px-4 gap-2 rounded-[10px] text-[13px] font-[500] flex items-center transition-all duration-150 shrink-0"
+                style={{ border: showFilters ? `1px solid ${C.accent}` : `1px solid ${C.border}`, background: showFilters ? C.accentSub : "transparent", color: showFilters ? C.accent : C.inkSec }}>
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span className="hidden xs:inline">Filtres</span>
+                {activeFilterCount > 0 && (
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-[700]"
+                    style={{ background: C.accent, color: "#fff" }}>{activeFilterCount}</span>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Filters panel */}
           {showFilters && (
-            <div className="pb-5 pt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-slide-down"
+            <div className="pb-5 pt-4 grid grid-cols-2 sm:grid-cols-3 gap-3 animate-slide-down"
               style={{ borderTop: `1px solid ${C.borderS}` }}>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-[600] uppercase tracking-[0.07em]" style={{ color: C.inkMut }}>Type</label>
@@ -469,7 +501,7 @@ function PostsPageContent() {
                   onChange={(e) => { setDateTo(e.target.value); setPage(1); }} style={{ ...selectStyle, width: "100%" }} />
               </div>
               {hasFilters && (
-                <div className="sm:col-span-3 flex items-center mt-1">
+                <div className="col-span-2 sm:col-span-3 flex items-center mt-1">
                   <button onClick={resetFilters} className="flex items-center gap-1.5 text-[13px] font-[500]" style={{ color: C.danger }}>
                     <X className="h-3.5 w-3.5" /> Effacer les filtres
                   </button>
@@ -482,7 +514,7 @@ function PostsPageContent() {
 
       {/* Grid */}
       <PageContainer>
-        <div className="py-8">
+        <div className="py-6 sm:py-8" ref={gridRef}>
           {loading ? (
             <div className="flex items-center justify-center py-28">
               <Loader2 className="h-6 w-6 animate-spin" style={{ color: C.accent }} />
@@ -503,24 +535,16 @@ function PostsPageContent() {
                     ))
                 }
               </div>
-              {pagination && pagination.pages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-12">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40 disabled:pointer-events-none"
-                    style={{ border: `1px solid ${C.border}`, color: C.inkSec, background: "transparent" }}>
-                    <ChevronLeft className="h-4 w-4" /> Précédent
-                  </button>
-                  <span className="text-[13px] font-[500] px-4 py-2 rounded-lg"
-                    style={{ color: C.inkSec, background: C.elevated, border: `1px solid ${C.border}` }}>
-                    {pagination.page} / {pagination.pages}
-                  </span>
-                  <button onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))} disabled={page === pagination.pages}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40 disabled:pointer-events-none"
-                    style={{ border: `1px solid ${C.border}`, color: C.inkSec, background: "transparent" }}>
-                    Suivant <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+              <Pagination
+                page={page}
+                pages={pagination?.pages ?? 1}
+                total={pagination?.total ?? 0}
+                limit={limit}
+                onPageChange={handlePageChange}
+                onLimitChange={(l) => { setLimit(l); setPage(1); }}
+                limitOptions={[12, 24, 48]}
+                className="mt-10"
+              />
             </>
           )}
         </div>

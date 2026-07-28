@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield, MessageSquare, Flag, Users } from "lucide-react";
+import { Search, Menu, X, Plus, LayoutDashboard, LogOut, Shield, MessageSquare, Flag, Users, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logoutUser } from "@/store/slices/authSlice";
@@ -312,9 +312,9 @@ export default function Header() {
 
                 {[
                   { label: "Nouvelle annonce", icon: <Plus className="h-4 w-4" />, action: () => router.push("/posts/new"), accent: true },
-                  { label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" />, action: () => router.push("/dashboard") },
+                  { label: "Dashboard",        icon: <LayoutDashboard className="h-4 w-4" />, action: () => router.push("/dashboard") },
+                  { label: "Contacts",         icon: <MessageSquare className="h-4 w-4" />, action: () => router.push("/dashboard/contacts") },
                   ...(user.role === "admin" ? [
-                    { label: "Admin", icon: <Shield className="h-4 w-4" />, action: () => router.push("/admin") },
                     {
                       label: pendingReports > 0 ? `Signalements (${pendingReports})` : "Signalements",
                       icon: <Flag className="h-4 w-4" />,
@@ -330,6 +330,11 @@ export default function Header() {
                       label: "Métriques",
                       icon: <Shield className="h-4 w-4" />,
                       action: () => router.push("/dashboard/admin/metrics"),
+                    },
+                    {
+                      label: "Journal d'audit",
+                      icon: <ClipboardList className="h-4 w-4" />,
+                      action: () => router.push("/dashboard/admin/audit-log"),
                     },
                   ] : []),
                 ].map(({ label, icon, action, accent, badge }) => (

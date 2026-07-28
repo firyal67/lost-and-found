@@ -524,23 +524,6 @@ function ContactModal({ post, onClose }) {
             );
           })()}
 
-          {/* ── Success screen ────────────────────────────────────────── */}
-          {(sent || (!checkingExisting && !existingContact && false)) && (
-            <div className="flex flex-col items-center text-center gap-3 py-4">
-              <div className="flex items-center justify-center w-14 h-14 rounded-2xl"
-                style={{ background: "rgba(79,142,247,0.10)", border: "1px solid rgba(79,142,247,0.22)" }}>
-                <CheckCircle2 className="h-7 w-7" style={{ color: "#4f8ef7" }} />
-              </div>
-              <div>
-                <p className="font-sans font-[700] text-[18px]" style={{ color: "#f0f2f8" }}>Demande envoyée !</p>
-                <p className="text-[14px] mt-1 leading-[1.65]" style={{ color: "#8b91a8" }}>
-                  L&apos;auteur a été notifié. Vous serez informé de sa réponse.
-                </p>
-              </div>
-              <Button onClick={onClose} className="mt-2 w-full">Fermer</Button>
-            </div>
-          )}
-
           {/* ── New request form ──────────────────────────────────────── */}
           {!checkingExisting && !existingContact && !sent && (
             <form onSubmit={handleSubmit} noValidate className="space-y-4">

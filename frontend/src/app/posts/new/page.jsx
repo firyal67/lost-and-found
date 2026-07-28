@@ -828,7 +828,7 @@ export default function NewPostPage() {
 
         <p className="text-center font-sans text-body-sm text-neutral-300 mt-6 leading-relaxed">
           En publiant, vous acceptez nos{" "}
-          <Link href="/terms" className="text-primary hover:underline">conditions d'utilisation</Link>{" "}
+          <Link href="/" className="text-primary hover:underline">conditions d'utilisation</Link>{" "}
           et confirmez que les informations fournies sont exactes.
         </p>
       </div>

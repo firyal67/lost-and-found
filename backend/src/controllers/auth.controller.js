@@ -8,13 +8,14 @@ const {
 } = require('../utils/jwt.utils');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email.service');
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  // 'strict' blocks the cookie when the browser proxies through a different
-  // port (Next.js dev proxy :3000 → :5000), causing session loss on every reload.
-  // 'lax' is safe for same-site navigations and still blocks cross-site CSRF.
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  secure:   isProd,
+  // Production (cross-domain Vercel ↔ Railway): sameSite=none requires secure=true
+  // Development (same-origin via proxy): sameSite=lax works fine
+  sameSite: isProd ? 'none' : 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
@@ -25,8 +26,8 @@ const setRefreshCookie = (res, token) => {
 const clearRefreshCookie = (res) => {
   res.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    secure:   isProd,
+    sameSite: isProd ? 'none' : 'lax',
   });
 };
 

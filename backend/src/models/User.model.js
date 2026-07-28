@@ -67,6 +67,17 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// ── Indexes ───────────────────────────────────────────────────────────────────
+// email already has a unique index from the field definition above
+// role + isActive: used by admin getUsers (filter by role, filter by status)
+userSchema.index({ role: 1 });
+userSchema.index({ isActive: 1 });
+userSchema.index({ role: 1, isActive: 1 });
+// createdAt: used for sorting in admin user list
+userSchema.index({ createdAt: -1 });
+// name text + email text: used for admin search (q param)
+userSchema.index({ name: 'text', email: 'text' });
+
 userSchema.pre('save', async function (next) { 
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(12);

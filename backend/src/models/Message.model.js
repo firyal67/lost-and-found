@@ -35,6 +35,8 @@ const messageSchema = new mongoose.Schema(
 
 // Index composé : récupérer les messages d'une conversation triés par date
 messageSchema.index({ contact: 1, createdAt: 1 });
+// Unread count query: contact + sender + read
+messageSchema.index({ contact: 1, sender: 1, read: 1 });
 
 messageSchema.methods.toJSON = function () {
   const obj = this.toObject();

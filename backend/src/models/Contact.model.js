@@ -19,7 +19,12 @@ const contactSchema = new mongoose.Schema(
 
 // Un seul contact par (post, requester)
 contactSchema.index({ post: 1, requester: 1 }, { unique: true });
+// owner lookups: dashboard "mes demandes reçues"
 contactSchema.index({ owner: 1, status: 1 });
+// requester lookups: dashboard "mes demandes envoyées"
+contactSchema.index({ requester: 1, status: 1 });
+// createdAt: for sorting
+contactSchema.index({ createdAt: -1 });
 
 contactSchema.methods.toJSON = function () {
   const obj = this.toObject();

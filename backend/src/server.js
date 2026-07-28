@@ -32,7 +32,10 @@ const io = new Server(server, {
 });
 
 // ── Socket.IO JWT auth middleware ─────────────────────────────────────────────
-io.use((socket, next) => {
+// Verifies the JWT, loads the user from the DB, and rejects banned accounts.
+const User = require('./models/User.model');
+
+io.use(async (socket, next) => {
   try {
     const token =
       socket.handshake.auth?.token ||
@@ -43,16 +46,30 @@ io.use((socket, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
     // Support both {user:{id,role}} and {userId} payloads
-    socket.userId =
+    const userId =
       decoded?.user?.id   ||
       decoded?.user?._id  ||
       decoded?.userId     ||
       decoded?.id;
 
-    if (!socket.userId) {
+    if (!userId) {
       return next(new Error('Invalid token payload'));
     }
+
+    // Load the user to verify the account is still active (not banned)
+    const user = await User.findById(userId).select('_id role isActive').lean();
+    if (!user) {
+      return next(new Error('User not found'));
+    }
+    if (!user.isActive) {
+      return next(new Error('Account suspended'));
+    }
+
+    // Attach both userId and role so event handlers can use them
+    socket.userId   = user._id.toString();
+    socket.userRole = user.role;
 
     next();
   } catch {
@@ -140,9 +157,13 @@ io.on('connection', (socket) => {
   /* ── Typing indicators ───────────────────────────────────────────────────
    * Client emits: typing  { contactId, isTyping }
    * Server relays to other participants only.
+   * Only forwards if the socket has actually joined that conversation room,
+   * preventing a client from spoofing typing events in rooms it doesn't belong to.
    */
   socket.on('typing', ({ contactId, isTyping }) => {
     const room = `conv:${contactId}`;
+    // socket.rooms is a Set; only relay if this socket legitimately joined the room
+    if (!socket.rooms.has(room)) return;
     socket.to(room).emit('typing', { userId: socket.userId, isTyping });
   });
 

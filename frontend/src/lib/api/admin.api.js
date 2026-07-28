@@ -23,9 +23,14 @@ export const adminApi = {
    * Bannit un utilisateur.
    * @param {string} id
    * @param {string} token
+   * @param {{ reason?: string }} [body]
    */
-  banUser: async (id, token) => {
-    return apiFetch(`/admin/users/${id}/ban`, { method: "PATCH", token });
+  banUser: async (id, token, body) => {
+    return apiFetch(`/admin/users/${id}/ban`, {
+      method: "PATCH",
+      token,
+      ...(body && { body: JSON.stringify(body) }),
+    });
   },
 
   /**
@@ -45,5 +50,21 @@ export const adminApi = {
    */
   getMetrics: async (token) => {
     return apiFetch("/admin/metrics", { token });
+  },
+
+  /**
+   * GET /api/admin/audit-log
+   * Journal de modération paginé et filtrable.
+   * @param {{ action?, adminId?, page?, limit? }} params
+   * @param {string} token
+   */
+  getAuditLog: async (params = {}, token) => {
+    const qs = new URLSearchParams();
+    if (params.action)  qs.set("action",  params.action);
+    if (params.adminId) qs.set("adminId", params.adminId);
+    if (params.page)    qs.set("page",    String(params.page));
+    if (params.limit)   qs.set("limit",   String(params.limit));
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return apiFetch(`/admin/audit-log${query}`, { token });
   },
 };

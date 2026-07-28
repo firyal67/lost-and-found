@@ -11,7 +11,10 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/e
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  // 'strict' blocks the cookie when the browser proxies through a different
+  // port (Next.js dev proxy :3000 → :5000), causing session loss on every reload.
+  // 'lax' is safe for same-site navigations and still blocks cross-site CSRF.
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
@@ -23,7 +26,7 @@ const clearRefreshCookie = (res) => {
   res.clearCookie('refreshToken', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
   });
 };
 

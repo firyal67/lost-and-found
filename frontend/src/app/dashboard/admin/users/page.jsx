@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   Loader2, Search, RefreshCw, AlertCircle, ChevronLeft, ChevronRight,
@@ -10,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import AdminGuard from "@/components/auth/AdminGuard";
 import { adminApi } from "@/lib/api/admin.api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setAccessToken } from "@/store/slices/authSlice";
@@ -33,6 +33,9 @@ const C = {
 
 /* ── BanConfirmModal ─────────────────────────────────────────────────────── */
 function BanConfirmModal({ user, onClose, onConfirm, loading }) {
+  const [reason,      setReason]      = useState("");
+  const [reasonError, setReasonError] = useState("");
+
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", h);
@@ -40,6 +43,15 @@ function BanConfirmModal({ user, onClose, onConfirm, loading }) {
   }, [onClose]);
 
   const isBanning = user.isActive;
+
+  const handleConfirm = () => {
+    if (reason.length > 300) {
+      setReasonError("La raison ne doit pas dépasser 300 caractères");
+      return;
+    }
+    setReasonError("");
+    onConfirm(reason.trim() || undefined);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
@@ -76,14 +88,46 @@ function BanConfirmModal({ user, onClose, onConfirm, loading }) {
         </p>
 
         {isBanning && (
-          <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg mb-5"
-            style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)" }}>
-            <ShieldOff className="h-4 w-4 shrink-0 mt-0.5" style={{ color: C.danger }} />
-            <p className="text-[12px] leading-[1.55]" style={{ color: "#8b91a8" }}>
-              Le compte sera désactivé immédiatement. Toutes les sessions actives seront révoquées.
-              L&apos;utilisateur ne pourra plus se connecter.
-            </p>
-          </div>
+          <>
+            <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg mb-4"
+              style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)" }}>
+              <ShieldOff className="h-4 w-4 shrink-0 mt-0.5" style={{ color: C.danger }} />
+              <p className="text-[12px] leading-[1.55]" style={{ color: "#8b91a8" }}>
+                Le compte sera désactivé immédiatement. Toutes les sessions actives seront révoquées.
+                L&apos;utilisateur ne pourra plus se connecter.
+              </p>
+            </div>
+
+            {/* Optional ban reason */}
+            <div className="mb-5 space-y-1.5">
+              <label htmlFor="ban-reason" className="block text-[12px] font-[600]" style={{ color: C.inkSec }}>
+                Raison <span className="font-[400]" style={{ color: C.inkMut }}>(optionnel)</span>
+              </label>
+              <textarea
+                id="ban-reason"
+                rows={2}
+                maxLength={300}
+                placeholder="Ex : spam, comportement abusif…"
+                value={reason}
+                onChange={(e) => { setReason(e.target.value); setReasonError(""); }}
+                className="w-full rounded-lg px-3.5 py-2.5 text-[13px] resize-none focus:outline-none"
+                style={{
+                  background: "#161921",
+                  border: reasonError ? "1px solid #f87171" : "1px solid rgba(255,255,255,0.10)",
+                  color: C.ink,
+                  boxSizing: "border-box",
+                }}
+              />
+              <div className="flex items-center justify-between">
+                {reasonError
+                  ? <p className="text-[11px]" style={{ color: "#f87171" }} role="alert">{reasonError}</p>
+                  : <span />}
+                <p className="text-[11px]" style={{ color: reason.length > 280 ? C.warning : C.inkMut }}>
+                  {reason.length}/300
+                </p>
+              </div>
+            </div>
+          </>
         )}
 
         <div className="flex gap-3">
@@ -92,7 +136,7 @@ function BanConfirmModal({ user, onClose, onConfirm, loading }) {
             style={{ border: `1px solid ${C.border}`, color: C.inkSec, background: "transparent" }}>
             Annuler
           </button>
-          <button onClick={onConfirm} disabled={loading}
+          <button onClick={handleConfirm} disabled={loading}
             className="flex-1 h-10 rounded-lg text-[13px] font-[700] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             style={{
               background: isBanning ? C.danger : C.success,
@@ -123,12 +167,12 @@ function UserRow({ user: u, currentUserId, getToken, onUpdated }) {
     day: "numeric", month: "short", year: "numeric",
   });
 
-  const handleAction = async () => {
+  const handleAction = async (reason) => {
     setLoading(true);
     try {
       const token = await getToken();
       const fn    = isBanned ? adminApi.unbanUser : adminApi.banUser;
-      const data  = await fn(u._id, token);
+      const data  = await fn(u._id, token, reason ? { reason } : undefined);
       toast.success(data.message);
       onUpdated({ ...u, isActive: !isBanned });
       setModal(false);
@@ -221,24 +265,18 @@ function UserRow({ user: u, currentUserId, getToken, onUpdated }) {
 }
 
 /* ── Main page ───────────────────────────────────────────────────────────── */
-export default function AdminUsersPage() {
-  const router   = useRouter();
+function AdminUsersContent() {
   const dispatch = useAppDispatch();
-  const { user, isHydrating, accessToken } = useAppSelector((s) => s.auth);
+  const { user, accessToken } = useAppSelector((s) => s.auth);
 
-  const [users,      setUsers]      = useState([]);
-  const [pagination, setPagination] = useState(null);
-  const [page,       setPage]       = useState(1);
-  const [q,          setQ]          = useState("");
-  const [qInput,     setQInput]     = useState("");
+  const [users,        setUsers]        = useState([]);
+  const [pagination,   setPagination]   = useState(null);
+  const [page,         setPage]         = useState(1);
+  const [q,            setQ]            = useState("");
+  const [qInput,       setQInput]       = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(null);
-
-  useEffect(() => {
-    if (!isHydrating && !user)             router.push("/auth/login?redirect=/dashboard/admin/users");
-    if (!isHydrating && user?.role !== "admin") router.push("/");
-  }, [user, isHydrating, router]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState(null);
 
   const getToken = useCallback(async () => {
     if (accessToken) return accessToken;
@@ -262,10 +300,7 @@ export default function AdminUsersPage() {
     }
   }, [q, statusFilter, page, getToken]);
 
-  useEffect(() => {
-    if (!isHydrating && user?.role === "admin") fetchUsers();
-  }, [q, statusFilter, page, isHydrating, user, fetchUsers]);
-
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
   useEffect(() => { setPage(1); }, [q, statusFilter]);
 
   const handleSearch = (e) => { e.preventDefault(); setQ(qInput.trim()); };
@@ -281,12 +316,6 @@ export default function AdminUsersPage() {
     background: "#161921", color: C.ink, padding: "0 12px",
     fontFamily: "Inter, system-ui, sans-serif", fontSize: "13px", outline: "none",
   };
-
-  if (isHydrating) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: C.canvas }}>
-      <Loader2 className="h-6 w-6 animate-spin" style={{ color: C.accent }} />
-    </div>
-  );
 
   return (
     <div className="min-h-screen" style={{ background: C.canvas }}>
@@ -329,6 +358,7 @@ export default function AdminUsersPage() {
                   value={qInput}
                   onChange={(e) => setQInput(e.target.value)}
                   placeholder="Rechercher par nom ou email…"
+                  maxLength={100}
                   className="pl-9"
                 />
               </div>
@@ -407,5 +437,13 @@ export default function AdminUsersPage() {
         </div>
       </PageContainer>
     </div>
+  );
+}
+
+export default function AdminUsersPage() {
+  return (
+    <AdminGuard>
+      <AdminUsersContent />
+    </AdminGuard>
   );
 }

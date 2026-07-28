@@ -1,12 +1,14 @@
-const { body, param, query } = require('express-validator');
+'use strict';
+const { body, param } = require('express-validator');
+const { stripTags } = require('../middleware/validate.middleware');
 
-const VALID_REASONS = ['spam', 'scam', 'misleading', 'inappropriate', 'duplicate', 'other'];
+const VALID_REASONS  = ['spam', 'scam', 'misleading', 'inappropriate', 'duplicate', 'other'];
 const VALID_STATUSES = ['pending', 'reviewed', 'actioned', 'dismissed'];
 
 const createReportValidator = [
   body('postId')
-    .notEmpty().withMessage("L'ID de l'annonce est requis")
-    .isMongoId().withMessage("ID d'annonce invalide"),
+    .notEmpty().withMessage('L\'ID de l\'annonce est requis')
+    .isMongoId().withMessage('ID d\'annonce invalide'),
 
   body('reason')
     .notEmpty().withMessage('La raison du signalement est requise')
@@ -15,6 +17,7 @@ const createReportValidator = [
   body('comment')
     .optional({ checkFalsy: true })
     .trim()
+    .customSanitizer(stripTags)
     .isLength({ max: 500 }).withMessage('Le commentaire ne doit pas dépasser 500 caractères'),
 ];
 
@@ -29,6 +32,7 @@ const updateReportStatusValidator = [
   body('adminNote')
     .optional({ checkFalsy: true })
     .trim()
+    .customSanitizer(stripTags)
     .isLength({ max: 500 }).withMessage('La note admin ne doit pas dépasser 500 caractères'),
 ];
 

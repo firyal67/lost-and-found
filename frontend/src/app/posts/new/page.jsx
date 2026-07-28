@@ -279,10 +279,38 @@ export default function NewPostPage() {
   const [photo, setPhoto] = useState(null);
   const TOTAL_STEPS = 4;
 
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail,      setContactEmail]      = useState("");
+  const [contactEmailError, setContactEmailError] = useState("");
+  const [contactPhone,      setContactPhone]      = useState("");
+  const [contactPhoneError, setContactPhoneError] = useState("");
   const [contactPrefs, setContactPrefs] = useState({ platform: true, email: true, phone: false });
   const togglePref = (key) => setContactPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // Validate contact fields that live outside react-hook-form
+  const validateContactFields = () => {
+    let valid = true;
+    if (contactPrefs.email && contactEmail) {
+      if (!/^\S+@\S+\.\S+$/.test(contactEmail.trim())) {
+        setContactEmailError("Email de contact invalide");
+        valid = false;
+      } else {
+        setContactEmailError("");
+      }
+    } else {
+      setContactEmailError("");
+    }
+    if (contactPrefs.phone && contactPhone) {
+      if (!/^[\d\s+\-()]{6,20}$/.test(contactPhone.trim())) {
+        setContactPhoneError("Numéro invalide (6-20 chiffres, ex: +216 XX XXX XXX)");
+        valid = false;
+      } else {
+        setContactPhoneError("");
+      }
+    } else {
+      setContactPhoneError("");
+    }
+    return valid;
+  };
 
   const tokenRef = useRef(accessToken);
   useEffect(() => { tokenRef.current = accessToken; }, [accessToken]);
@@ -367,6 +395,9 @@ export default function NewPostPage() {
   const goBack = () => setStep((s) => Math.max(s - 1, 0));
 
   const onSubmit = async (values) => {
+    // Validate the contact fields that live outside react-hook-form
+    if (!validateContactFields()) return;
+
     let token = tokenRef.current;
     if (!token) {
       try {
@@ -661,17 +692,22 @@ export default function NewPostPage() {
                           placeholder="votre@email.com"
                           autoComplete="email"
                           value={contactEmail}
-                          onChange={(e) => setContactEmail(e.target.value)}
+                          onChange={(e) => { setContactEmail(e.target.value); setContactEmailError(""); }}
                           style={{
                             width: "100%", height: "42px", borderRadius: "8px",
-                            border: "1px solid rgba(255,255,255,0.10)",
+                            border: contactEmailError ? "1px solid #f87171" : "1px solid rgba(255,255,255,0.10)",
                             background: "#161921", padding: "0 12px",
                             color: "#f0f2f8", fontSize: "14px", outline: "none",
                             boxSizing: "border-box",
                           }}
-                          onFocus={(e) => { e.target.style.borderColor = "#4f8ef7"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.20)"; }}
-                          onBlur={(e) => { e.target.style.borderColor = "rgba(255,255,255,0.10)"; e.target.style.boxShadow = "none"; }}
+                          onFocus={(e) => { if (!contactEmailError) { e.target.style.borderColor = "#4f8ef7"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.20)"; } }}
+                          onBlur={(e) => { e.target.style.borderColor = contactEmailError ? "#f87171" : "rgba(255,255,255,0.10)"; e.target.style.boxShadow = "none"; }}
                         />
+                        {contactEmailError && (
+                          <p className="flex items-center gap-1 text-[12px]" style={{ color: "#f87171" }} role="alert">
+                            <span className="inline-block w-1 h-1 rounded-full bg-[#f87171] shrink-0" />{contactEmailError}
+                          </p>
+                        )}
                         <p className="text-[12px]" style={{ color: "#6b7494" }}>Visible uniquement par les personnes connectées</p>
                       </div>
                     )}
@@ -710,17 +746,22 @@ export default function NewPostPage() {
                           placeholder="+216 XX XXX XXX"
                           autoComplete="tel"
                           value={contactPhone}
-                          onChange={(e) => setContactPhone(e.target.value)}
+                          onChange={(e) => { setContactPhone(e.target.value); setContactPhoneError(""); }}
                           style={{
                             width: "100%", height: "42px", borderRadius: "8px",
-                            border: "1px solid rgba(255,255,255,0.10)",
+                            border: contactPhoneError ? "1px solid #f87171" : "1px solid rgba(255,255,255,0.10)",
                             background: "#161921", padding: "0 12px",
                             color: "#f0f2f8", fontSize: "14px", outline: "none",
                             boxSizing: "border-box",
                           }}
-                          onFocus={(e) => { e.target.style.borderColor = "#4f8ef7"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.20)"; }}
-                          onBlur={(e) => { e.target.style.borderColor = "rgba(255,255,255,0.10)"; e.target.style.boxShadow = "none"; }}
+                          onFocus={(e) => { if (!contactPhoneError) { e.target.style.borderColor = "#4f8ef7"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.20)"; } }}
+                          onBlur={(e) => { e.target.style.borderColor = contactPhoneError ? "#f87171" : "rgba(255,255,255,0.10)"; e.target.style.boxShadow = "none"; }}
                         />
+                        {contactPhoneError && (
+                          <p className="flex items-center gap-1 text-[12px]" style={{ color: "#f87171" }} role="alert">
+                            <span className="inline-block w-1 h-1 rounded-full bg-[#f87171] shrink-0" />{contactPhoneError}
+                          </p>
+                        )}
                         <p className="text-[12px]" style={{ color: "#6b7494" }}>Visible uniquement par les personnes connectées</p>
                       </div>
                     )}

@@ -14,11 +14,13 @@ const {
   createReportValidator,
   updateReportStatusValidator,
 } = require('../validators/reports.validators');
+const { reportCreateLimiter, adminActionLimiter } = require('../config/rate-limiter');
 
 // POST /api/reports — Signaler une annonce (authentifié)
 router.post(
   '/',
   authenticateJWT,
+  reportCreateLimiter,
   validate(createReportValidator),
   createReport
 );
@@ -38,6 +40,7 @@ router.patch(
   '/:id/status',
   authenticateJWT,
   authorizeRole('admin'),
+  adminActionLimiter,
   validate(updateReportStatusValidator),
   updateReportStatus
 );
@@ -47,6 +50,7 @@ router.delete(
   '/:id/post',
   authenticateJWT,
   authorizeRole('admin'),
+  adminActionLimiter,
   deleteReportedPost
 );
 

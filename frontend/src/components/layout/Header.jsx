@@ -167,6 +167,7 @@ export default function Header() {
                   Contacts
                 </Button>
                 {user.role === "admin" && (
+                  <>
                   <button
                     onClick={() => router.push("/dashboard/reports")}
                     className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-[500] transition-all duration-150"
@@ -195,6 +196,7 @@ export default function Header() {
                     <Users className="h-3.5 w-3.5" />
                     Utilisateurs
                   </button>
+                  </>
                 )}
                 <Button size="sm" onClick={() => router.push("/posts/new")}>
                   <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   MessageSquare, Flag, PlusCircle, FileText,
-  LayoutDashboard, ChevronRight, Loader2, Users, BarChart2,
+  LayoutDashboard, ChevronRight, Loader2, Users, BarChart2, ClipboardList,
 } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import PageContainer from "@/components/layout/PageContainer";
@@ -141,6 +141,15 @@ export default function DashboardPage() {
       iconBorder:"rgba(192,132,252,0.22)",
       title:       "Métriques",
       description: "Statistiques d'utilisation de la plateforme",
+    },
+    {
+      href: "/dashboard/admin/audit-log",
+      icon: ClipboardList,
+      iconColor: C.accent,
+      iconBg:    "rgba(79,142,247,0.10)",
+      iconBorder:"rgba(79,142,247,0.22)",
+      title:       "Journal d'audit",
+      description: "Traçabilité de toutes les actions de modération",
     },
   ];
 

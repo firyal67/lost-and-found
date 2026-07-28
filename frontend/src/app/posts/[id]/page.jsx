@@ -811,7 +811,8 @@ function ReportModal({ post, onClose, alreadyReported }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
+    e?.stopPropagation();
     if (!reason) return;
     setLoading(true);
     try {
@@ -820,11 +821,10 @@ function ReportModal({ post, onClose, alreadyReported }) {
       setSubmitted(true);
       toast.success("Signalement envoyé. Merci pour votre vigilance.");
     } catch (err) {
-      const msg = err.response?.message || err.message || "Une erreur est survenue.";
       if (err.status === 409) {
-        setSubmitted(true); // already reported — show success state
+        setSubmitted(true);
       } else {
-        toast.error(msg);
+        toast.error(err.response?.message || err.message || "Une erreur est survenue.");
       }
     } finally {
       setLoading(false);
@@ -838,10 +838,11 @@ function ReportModal({ post, onClose, alreadyReported }) {
       role="dialog" aria-modal="true" aria-label="Signaler l'annonce"
     >
       <div className="w-full max-w-[460px] rounded-2xl overflow-hidden animate-scale-in"
-        style={{ background: "#13161e", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 56px rgba(0,0,0,0.60)" }}>
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: "#13161e", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 56px rgba(0,0,0,0.60)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4"
+        <div className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
@@ -862,8 +863,8 @@ function ReportModal({ post, onClose, alreadyReported }) {
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-5">
+        {/* Scrollable body */}
+        <div className="px-6 py-5 overflow-y-auto flex-1">
           {submitted ? (
             /* ── Success state ────────────────────────────────────────── */
             <div className="flex flex-col items-center text-center gap-3 py-4">
@@ -943,23 +944,38 @@ function ReportModal({ post, onClose, alreadyReported }) {
                 <p className="text-right text-[11px]" style={{ color: "#6b7494" }}>{comment.length}/500</p>
               </div>
 
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={onClose} disabled={loading}
-                  className="flex-1 h-10 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40"
-                  style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#b8bdd0", background: "transparent" }}>
-                  Annuler
-                </button>
-                <button type="submit" disabled={loading || !reason}
-                  className="flex-1 h-10 rounded-lg text-[13px] font-[700] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-                  style={{ background: reason ? "rgba(251,191,36,0.18)" : "rgba(255,255,255,0.05)", color: reason ? "#fbbf24" : "#6b7494", border: reason ? "1px solid rgba(251,191,36,0.30)" : "1px solid rgba(255,255,255,0.06)" }}>
-                  {loading
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Envoi…</>
-                    : <><Flag className="h-3.5 w-3.5" /> Envoyer le signalement</>}
-                </button>
-              </div>
+              {/* spacer so content doesn't hide behind the sticky footer */}
+              <div className="h-2" />
             </form>
           )}
         </div>
+
+        {/* ── Sticky action footer (form) ───────────────────────────── */}
+        {!submitted && (
+          <div className="flex gap-3 px-6 py-4 shrink-0"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "#13161e" }}>
+            <button type="button" onClick={onClose} disabled={loading}
+              className="flex-1 h-10 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40"
+              style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#b8bdd0", background: "transparent" }}>
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading || !reason}
+              className="flex-1 h-10 rounded-lg text-[13px] font-[700] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              style={{
+                background: reason ? "rgba(251,191,36,0.18)" : "rgba(255,255,255,0.05)",
+                color:      reason ? "#fbbf24" : "#6b7494",
+                border:     reason ? "1px solid rgba(251,191,36,0.30)" : "1px solid rgba(255,255,255,0.06)",
+              }}>
+              {loading
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Envoi…</>
+                : <><Flag className="h-3.5 w-3.5" /> Envoyer le signalement</>}
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -1226,7 +1242,8 @@ function MarkStatusModal({ post, onClose, onUpdated }) {
 export default function PostDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, isHydrating } = useAppSelector((s) => s.auth);
+  const dispatch = useAppDispatch();
+  const { user, isHydrating, accessToken } = useAppSelector((s) => s.auth);
 
   const [post,              setPost]              = useState(null);
   const [loading,           setLoading]           = useState(true);

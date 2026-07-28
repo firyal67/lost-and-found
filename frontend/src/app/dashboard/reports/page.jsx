@@ -15,6 +15,7 @@ import { postsApi  } from "@/lib/api/posts.api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setAccessToken } from "@/store/slices/authSlice";
 import PageContainer from "@/components/layout/PageContainer";
+import AdminGuard from "@/components/auth/AdminGuard";
 
 /* ── Design tokens ───────────────────────────────────────────────────────── */
 const C = {
@@ -530,10 +531,9 @@ function EmptyState({ status }) {
 }
 
 /* ── Main page ───────────────────────────────────────────────────────────── */
-export default function ReportsDashboardPage() {
-  const router   = useRouter();
+function ReportsDashboardContent() {
   const dispatch = useAppDispatch();
-  const { user, isHydrating, accessToken } = useAppSelector((s) => s.auth);
+  const { accessToken } = useAppSelector((s) => s.auth);
 
   const [activeTab,  setActiveTab]  = useState("pending");
   const [reports,    setReports]    = useState([]);
@@ -543,13 +543,8 @@ export default function ReportsDashboardPage() {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
 
-  // Redirect non-admins
-  useEffect(() => {
-    if (!isHydrating && !user) router.push("/auth/login?redirect=/dashboard/reports");
-    if (!isHydrating && user && user.role !== "admin") router.push("/");
-  }, [user, isHydrating, router]);
-
-  // Always-fresh token — no stale local state
+  // Redirect non-admins — handled by AdminGuard
+  // Always-fresh token
   const getToken = useCallback(async () => {
     if (accessToken) return accessToken;
     const { refreshAccessToken } = await import("@/lib/api-client");
@@ -589,11 +584,9 @@ export default function ReportsDashboardPage() {
   }, [activeTab, page, getToken]);
 
   useEffect(() => {
-    if (!isHydrating && user?.role === "admin") {
-      fetchReports();
-      fetchCounts();
-    }
-  }, [activeTab, page, isHydrating, user, fetchReports, fetchCounts]);
+    fetchReports();
+    fetchCounts();
+  }, [activeTab, page, fetchReports, fetchCounts]);
 
   // Reset to page 1 when tab changes
   useEffect(() => { setPage(1); }, [activeTab]);
@@ -612,14 +605,6 @@ export default function ReportsDashboardPage() {
     setPagination((p) => p ? { ...p, total: Math.max(0, p.total - 1) } : p);
     fetchCounts();
   }, [fetchCounts]);
-
-  if (isHydrating) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: C.canvas }}>
-        <Loader2 className="h-6 w-6 animate-spin" style={{ color: C.accent }} />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen" style={{ background: C.canvas }}>
@@ -742,5 +727,13 @@ export default function ReportsDashboardPage() {
         </div>
       </PageContainer>
     </div>
+  );
+}
+
+export default function ReportsDashboardPage() {
+  return (
+    <AdminGuard>
+      <ReportsDashboardContent />
+    </AdminGuard>
   );
 }

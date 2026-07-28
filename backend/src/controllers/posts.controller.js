@@ -186,22 +186,14 @@ const getPostById = async (req, res, next) => {
 /**
  * DELETE /api/posts/:id
  * Supprime une annonce. Réservé à l'auteur ou à un admin.
- * Requiert authenticateJWT.
+ * Requiert authenticateJWT + checkPostOwner (ownership already verified — req.post is set).
  */
 const deletePost = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const post = await Post.findById(id);
+    // req.post is pre-loaded and ownership-verified by checkPostOwner middleware
+    const post = req.post ?? await Post.findById(req.params.id);
     if (!post) {
       return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
-    }
-
-    const isOwner = post.author.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === 'admin';
-
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Accès refusé.' });
     }
 
     await post.deleteOne();
@@ -222,22 +214,14 @@ const deletePost = async (req, res, next) => {
  * PATCH /api/posts/:id/resolve
  * Clôture une annonce en la marquant comme résolue.
  * Réservé à l'auteur ou à un admin.
- * Requiert authenticateJWT.
+ * Requiert authenticateJWT + checkPostOwner (ownership already verified — req.post is set).
  */
 const resolvePost = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const post = await Post.findById(id);
+    // req.post is pre-loaded and ownership-verified by checkPostOwner middleware
+    const post = req.post ?? await Post.findById(req.params.id);
     if (!post) {
       return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
-    }
-
-    const isOwner = post.author.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === 'admin';
-
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Accès refusé.' });
     }
 
     if (post.status === 'resolved') {
@@ -271,22 +255,16 @@ const resolvePost = async (req, res, next) => {
  *   matchedWith  — ID de l'annonce correspondante
  *
  * Réservé à l'auteur ou à un admin.
- * Requiert authenticateJWT.
+ * Requiert authenticateJWT + checkPostOwner (ownership already verified — req.post is set).
  */
 const matchPost = async (req, res, next) => {
   try {
-    const { id } = req.params;
     const { matchedWith } = req.body;
 
-    const post = await Post.findById(id);
+    // req.post is pre-loaded and ownership-verified by checkPostOwner middleware
+    const post = req.post ?? await Post.findById(req.params.id);
     if (!post) {
       return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
-    }
-
-    const isOwner = post.author.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === 'admin';
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Accès refusé.' });
     }
 
     if (post.status === 'matched') {
@@ -329,21 +307,14 @@ const matchPost = async (req, res, next) => {
  * Modifie une annonce existante.
  * Réservé à l'auteur ou à un admin.
  * Seules les annonces actives peuvent être modifiées.
- * Requiert authenticateJWT.
+ * Requiert authenticateJWT + checkPostOwner (ownership already verified — req.post is set).
  */
 const updatePost = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const post = await Post.findById(id);
+    // req.post is pre-loaded and ownership-verified by checkPostOwner middleware
+    const post = req.post ?? await Post.findById(req.params.id);
     if (!post) {
       return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
-    }
-
-    const isOwner = post.author.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === 'admin';
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Accès refusé.' });
     }
 
     if (post.status !== 'active') {
@@ -401,21 +372,14 @@ const updatePost = async (req, res, next) => {
  * Archive une annonce — la retire de la liste publique mais la conserve en base.
  * Peut être appliqué à n'importe quel statut (active, resolved, matched).
  * Réservé à l'auteur ou à un admin.
- * Requiert authenticateJWT.
+ * Requiert authenticateJWT + checkPostOwner (ownership already verified — req.post is set).
  */
 const archivePost = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const post = await Post.findById(id);
+    // req.post is pre-loaded and ownership-verified by checkPostOwner middleware
+    const post = req.post ?? await Post.findById(req.params.id);
     if (!post) {
       return res.status(404).json({ success: false, message: 'Annonce introuvable.' });
-    }
-
-    const isOwner = post.author.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === 'admin';
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Accès refusé.' });
     }
 
     if (post.status === 'archived') {

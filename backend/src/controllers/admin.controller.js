@@ -3,6 +3,7 @@ const User    = require('../models/User.model');
 const Post    = require('../models/Post.model');
 const Report  = require('../models/Report.model');
 const Contact = require('../models/Contact.model');
+const { writeAuditLog, extractRequestMeta } = require('../services/audit.service');
 
 /* ─────────────────────────────────────────────────────────────────────────
    GET /api/admin/users
@@ -87,6 +88,19 @@ const banUser = async (req, res, next) => {
     user.refreshTokens = [];
     await user.save();
 
+    // ── Audit log ────────────────────────────────────────────────────────
+    await writeAuditLog({
+      action:      'user.ban',
+      performedBy: req.user._id,
+      targetUser:  user._id,
+      details: {
+        userName:  user.name,
+        userEmail: user.email,
+        reason:    req.body.reason ?? null,
+      },
+      ...extractRequestMeta(req),
+    });
+
     return res.status(200).json({
       success: true,
       message: `Utilisateur ${user.name} banni avec succès.`,
@@ -115,6 +129,15 @@ const unbanUser = async (req, res, next) => {
 
     user.isActive = true;
     await user.save();
+
+    // ── Audit log ────────────────────────────────────────────────────────
+    await writeAuditLog({
+      action:      'user.unban',
+      performedBy: req.user._id,
+      targetUser:  user._id,
+      details: { userName: user.name, userEmail: user.email },
+      ...extractRequestMeta(req),
+    });
 
     return res.status(200).json({
       success: true,

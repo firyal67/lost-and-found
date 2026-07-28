@@ -132,19 +132,18 @@ const getContactForPost = async (req, res, next) => {
 /**
  * PATCH /api/contacts/:id/approve
  * Approuve une demande de contact et révèle les coordonnées du propriétaire.
- * Réservé au owner de l'annonce.
+ * Réservé au owner de l'annonce ou à un admin.
+ * Requiert authenticateJWT + checkContactOwner (ownership already verified — req.contact is set).
  */
 const approveContact = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const userId = req.user._id;
+    // req.contact is pre-loaded and ownership-verified by checkContactOwner middleware
+    const contact = req.contact
+      ? await Contact.findById(req.contact._id).populate('post', 'contactEmail contactPhone')
+      : await Contact.findById(req.params.id).populate('post', 'contactEmail contactPhone');
 
-    const contact = await Contact.findById(id).populate('post', 'contactEmail contactPhone');
     if (!contact) {
       return res.status(404).json({ success: false, message: 'Demande introuvable.' });
-    }
-    if (contact.owner.toString() !== userId.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Accès refusé.' });
     }
     if (contact.status === 'approved') {
       return res.status(409).json({ success: false, message: 'Cette demande est déjà approuvée.' });
@@ -180,19 +179,16 @@ const approveContact = async (req, res, next) => {
 /**
  * PATCH /api/contacts/:id/reject
  * Rejette une demande de contact.
- * Réservé au owner de l'annonce.
+ * Réservé au owner de l'annonce ou à un admin.
+ * Requiert authenticateJWT + checkContactOwner (ownership already verified — req.contact is set).
  */
 const rejectContact = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const userId = req.user._id;
+    // req.contact is pre-loaded and ownership-verified by checkContactOwner middleware
+    const contact = req.contact ?? await Contact.findById(req.params.id);
 
-    const contact = await Contact.findById(id);
     if (!contact) {
       return res.status(404).json({ success: false, message: 'Demande introuvable.' });
-    }
-    if (contact.owner.toString() !== userId.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Accès refusé.' });
     }
     if (contact.status === 'rejected') {
       return res.status(409).json({ success: false, message: 'Cette demande est déjà rejetée.' });

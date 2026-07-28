@@ -1,5 +1,6 @@
 const Report = require('../models/Report.model');
 const Post   = require('../models/Post.model');
+const { writeAuditLog, extractRequestMeta } = require('../services/audit.service');
 
 /**
  * POST /api/reports
@@ -161,6 +162,25 @@ const updateReportStatus = async (req, res, next) => {
       { path: 'reviewedBy', select: 'name email' },
     ]);
 
+    // ── Audit log ────────────────────────────────────────────────────────
+    const auditAction =
+      status === 'actioned'  ? 'report.actioned'  :
+      status === 'dismissed' ? 'report.dismissed' :
+      'report.reviewed';
+
+    await writeAuditLog({
+      action:       auditAction,
+      performedBy:  req.user._id,
+      targetReport: report._id,
+      targetPost:   report.post?._id ?? null,
+      details: {
+        newStatus: status,
+        postTitle: report.post?.title ?? null,
+        adminNote: adminNote ?? null,
+      },
+      ...extractRequestMeta(req),
+    });
+
     return res.status(200).json({
       success: true,
       message: 'Statut du signalement mis à jour.',
@@ -242,6 +262,20 @@ const deleteReportedPost = async (req, res, next) => {
         },
       }
     );
+
+    // ── Audit log ────────────────────────────────────────────────────────
+    await writeAuditLog({
+      action:       'post.deleted',
+      performedBy:  req.user._id,
+      targetReport: report._id,
+      targetPost:   postId,
+      details: {
+        postTitle:  post.title,
+        postType:   post.type,
+        postAuthor: post.author?.toString() ?? null,
+      },
+      ...extractRequestMeta(req),
+    });
 
     return res.status(200).json({
       success: true,

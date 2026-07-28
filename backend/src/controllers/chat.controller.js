@@ -2,34 +2,12 @@
 const Contact = require('../models/Contact.model');
 const Message = require('../models/Message.model');
 
-/**
- * Vérifie que l'utilisateur est bien l'un des deux participants
- * d'une conversation approuvée. Retourne le contact ou null.
- */
-async function resolveConversation(contactId, userId) {
-  const contact = await Contact.findById(contactId).lean();
-  if (!contact) return null;
-  if (contact.status !== 'approved') return null;
-  const isParticipant =
-    contact.owner.toString()     === userId.toString() ||
-    contact.requester.toString() === userId.toString();
-  if (!isParticipant) return null;
-  return contact;
-}
-
 /* ─── GET /api/chat/:contactId/messages ──────────────────────────────────── */
 const getMessages = async (req, res, next) => {
   try {
+    // req.contact is pre-loaded and participant-verified by requireConversationAccess
     const { contactId } = req.params;
     const userId = req.user._id;
-
-    const contact = await resolveConversation(contactId, userId);
-    if (!contact) {
-      return res.status(403).json({
-        success: false,
-        message: 'Conversation introuvable ou accès refusé.',
-      });
-    }
 
     const { before, limit = 50 } = req.query;
     const filter = { contact: contactId };
@@ -62,20 +40,13 @@ const getMessages = async (req, res, next) => {
 /* ─── POST /api/chat/:contactId/messages (REST fallback) ─────────────────── */
 const sendMessage = async (req, res, next) => {
   try {
+    // req.contact is pre-loaded and participant-verified by requireConversationAccess
     const { contactId } = req.params;
     const userId = req.user._id;
     const { content } = req.body;
 
     if (!content?.trim()) {
       return res.status(400).json({ success: false, message: 'Le message est vide.' });
-    }
-
-    const contact = await resolveConversation(contactId, userId);
-    if (!contact) {
-      return res.status(403).json({
-        success: false,
-        message: 'Conversation introuvable ou accès refusé.',
-      });
     }
 
     const message = await Message.create({
@@ -100,13 +71,9 @@ const sendMessage = async (req, res, next) => {
 /* ─── GET /api/chat/:contactId/unread ────────────────────────────────────── */
 const getUnreadCount = async (req, res, next) => {
   try {
+    // req.contact is pre-loaded and participant-verified by requireConversationAccess
     const { contactId } = req.params;
     const userId = req.user._id;
-
-    const contact = await resolveConversation(contactId, userId);
-    if (!contact) {
-      return res.status(403).json({ success: false, message: 'Accès refusé.' });
-    }
 
     const count = await Message.countDocuments({
       contact: contactId,

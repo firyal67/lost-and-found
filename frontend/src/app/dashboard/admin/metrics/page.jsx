@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Loader2, AlertCircle, RefreshCw, Users, FileText,
   Flag, MessageSquare, TrendingUp, ShieldOff, CheckCircle2,
@@ -12,6 +11,7 @@ import {
   ResponsiveContainer, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
+import AdminGuard from "@/components/auth/AdminGuard";
 import { adminApi } from "@/lib/api/admin.api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setAccessToken } from "@/store/slices/authSlice";
@@ -91,19 +91,13 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 /* ── Main page ───────────────────────────────────────────────────────────── */
-export default function AdminMetricsPage() {
-  const router   = useRouter();
+function AdminMetricsContent() {
   const dispatch = useAppDispatch();
-  const { user, isHydrating, accessToken } = useAppSelector((s) => s.auth);
+  const { accessToken } = useAppSelector((s) => s.auth);
 
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
-
-  useEffect(() => {
-    if (!isHydrating && !user)                  router.push("/auth/login?redirect=/dashboard/admin/metrics");
-    if (!isHydrating && user?.role !== "admin") router.push("/");
-  }, [user, isHydrating, router]);
 
   const getToken = useCallback(async () => {
     if (accessToken) return accessToken;
@@ -126,11 +120,9 @@ export default function AdminMetricsPage() {
     }
   }, [getToken]);
 
-  useEffect(() => {
-    if (!isHydrating && user?.role === "admin") fetchMetrics();
-  }, [isHydrating, user, fetchMetrics]);
+  useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
 
-  if (isHydrating || (!metrics && loading)) return (
+  if (!metrics && loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: C.canvas }}>
       <Loader2 className="h-6 w-6 animate-spin" style={{ color: C.accent }} />
     </div>
@@ -298,5 +290,13 @@ export default function AdminMetricsPage() {
         </div>
       </PageContainer>
     </div>
+  );
+}
+
+export default function AdminMetricsPage() {
+  return (
+    <AdminGuard>
+      <AdminMetricsContent />
+    </AdminGuard>
   );
 }

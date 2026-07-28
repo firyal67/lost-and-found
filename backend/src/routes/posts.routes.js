@@ -1,9 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { createPost, getPosts, getPostById, deletePost, resolvePost, matchPost, updatePost, archivePost, getMatchingSuggestions, getPostMatches } = require('../controllers/posts.controller');
+const {
+  createPost, getPosts, getPostById,
+  deletePost, resolvePost, matchPost, updatePost, archivePost,
+  getMatchingSuggestions, getPostMatches,
+} = require('../controllers/posts.controller');
 const validate = require('../middleware/validate.middleware');
-const { createPostValidator } = require('../validators/posts.validators');
+const { createPostValidator, updatePostValidator } = require('../validators/posts.validators');
 const { authenticateJWT } = require('../middleware/auth.middleware');
+const { checkPostOwner } = require('../middleware/ownership.middleware');
+const { postCreateLimiter } = require('../config/rate-limiter');
 
 // GET /api/posts — Lister les annonces (public)
 router.get('/', getPosts);
@@ -19,21 +25,21 @@ router.get('/:id', getPostById);
 router.get('/:id/matches', getPostMatches);
 
 // POST /api/posts — Créer une annonce (authentifié)
-router.post('/', authenticateJWT, validate(createPostValidator), createPost);
+router.post('/', authenticateJWT, postCreateLimiter, validate(createPostValidator), createPost);
 
 // DELETE /api/posts/:id — Supprimer une annonce (owner ou admin)
-router.delete('/:id', authenticateJWT, deletePost);
+router.delete('/:id', authenticateJWT, checkPostOwner(), deletePost);
 
 // PATCH /api/posts/:id — Modifier une annonce (owner ou admin)
-router.patch('/:id', authenticateJWT, updatePost);
+router.patch('/:id', authenticateJWT, checkPostOwner(), validate(updatePostValidator), updatePost);
 
 // PATCH /api/posts/:id/resolve — Clôturer une annonce (owner ou admin)
-router.patch('/:id/resolve', authenticateJWT, resolvePost);
+router.patch('/:id/resolve', authenticateJWT, checkPostOwner(), resolvePost);
 
 // PATCH /api/posts/:id/archive — Archiver une annonce (owner ou admin)
-router.patch('/:id/archive', authenticateJWT, archivePost);
+router.patch('/:id/archive', authenticateJWT, checkPostOwner(), archivePost);
 
 // PATCH /api/posts/:id/match — Marquer comme mise en correspondance (owner ou admin)
-router.patch('/:id/match', authenticateJWT, matchPost);
+router.patch('/:id/match', authenticateJWT, checkPostOwner(), matchPost);
 
 module.exports = router;

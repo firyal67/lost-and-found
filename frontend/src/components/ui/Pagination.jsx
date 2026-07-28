@@ -54,38 +54,26 @@ export default function Pagination({
   const btn = (
     label,
     onClick,
-    { disabled = false, active = false, isEllipsis = false } = {}
+    { disabled = false, active = false } = {}
   ) => {
-    if (isEllipsis) {
-      return (
-        <span
-          key={label}
-          className="flex items-center justify-center w-9 h-9"
-          style={{ color: "#6b7494" }}
-          aria-hidden
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </span>
-      );
-    }
+    // Prev / Next — auto width to fit text + icon
+    const isNavBtn = typeof label !== "number";
     return (
       <button
-        key={label}
+        key={String(label)}
         onClick={onClick}
         disabled={disabled}
         aria-current={active ? "page" : undefined}
-        aria-label={typeof label === "number" ? `Page ${label}` : label}
-        className="flex items-center justify-center w-9 h-9 rounded-lg text-[13px] font-[600] transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none"
+        aria-label={typeof label === "number" ? `Page ${label}` : undefined}
+        className={[
+          "inline-flex items-center justify-center gap-1 rounded-lg text-[13px] font-[600] transition-all duration-150",
+          "disabled:opacity-40 disabled:pointer-events-none",
+          isNavBtn ? "h-9 px-3" : "w-9 h-9",
+        ].join(" ")}
         style={{
-          background: active
-            ? "#4f8ef7"
-            : "transparent",
-          color: active
-            ? "#fff"
-            : disabled
-            ? "#6b7494"
-            : "#b8bdd0",
-          border: active
+          background: active ? "#4f8ef7" : "transparent",
+          color:      active ? "#fff" : disabled ? "#6b7494" : "#b8bdd0",
+          border:     active
             ? "1px solid #4f8ef7"
             : "1px solid rgba(255,255,255,0.08)",
         }}
@@ -115,7 +103,7 @@ export default function Pagination({
 
         {/* Prev */}
         {btn(
-          <><ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline ml-0.5">Précédent</span></>,
+          <><ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline">Précédent</span></>,
           () => onPageChange(page - 1),
           { disabled: page === 1 }
         )}
@@ -145,7 +133,7 @@ export default function Pagination({
 
         {/* Next */}
         {btn(
-          <><span className="hidden sm:inline mr-0.5">Suivant</span><ChevronRight className="h-4 w-4" /></>,
+          <><span className="hidden sm:inline">Suivant</span><ChevronRight className="h-4 w-4" /></>,
           () => onPageChange(page + 1),
           { disabled: page === pages }
         )}

@@ -1,7 +1,7 @@
 # REST API Reference
 
 **Base URL (développement)** : `http://localhost:5000/api`  
-**Base URL (production)** : `https://<app>.railway.app/api`
+**Base URL (production)** : `https://backend-service-production-ac47.up.railway.app/api`
 
 ## Conventions
 

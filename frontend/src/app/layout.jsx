@@ -14,6 +14,10 @@ const inter = Inter({
 export const metadata = {
   title: "Lost & Found Tunisia",
   description: "Plateforme de déclaration d'objets perdus et trouvés en Tunisie",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }) {

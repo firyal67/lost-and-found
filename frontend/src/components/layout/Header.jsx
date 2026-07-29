@@ -152,14 +152,8 @@ export default function Header() {
               </div>
             ) : user ? (
               <>
-                {user.role === "admin" && (
-                  <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
-                    <Shield className="h-3.5 w-3.5" />
-                    Dashboard
-                  </Button>
-                )}
                 <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
-                  <LayoutDashboard className="h-3.5 w-3.5" />
+                  {user.role === "admin" ? <Shield className="h-3.5 w-3.5" /> : <LayoutDashboard className="h-3.5 w-3.5" />}
                   Dashboard
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/contacts")}>

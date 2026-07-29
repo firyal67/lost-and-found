@@ -1,9 +1,15 @@
 const nodemailer = require('nodemailer');
 const logger = require('../config/logger');
 
-const createTransporter = async () => {
+let transporter = null;
+let transporterPromise = null;
+
+const getTransporter = async () => {
+  if (transporter) return transporter;
+  if (transporterPromise) return transporterPromise;
+
   if (process.env.SMTP_HOST) {
-    return nodemailer.createTransport({
+    transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT) || 587,
       secure: process.env.SMTP_SECURE === 'true',
@@ -12,27 +18,27 @@ const createTransporter = async () => {
         pass: process.env.SMTP_PASS,
       },
     });
+    transporterPromise = Promise.resolve(transporter);
+    return transporter;
   }
 
-  const testAccount = await nodemailer.createTestAccount();
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    secure: false,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass,
-    },
-  });
-  logger.info({ etherealUser: testAccount.user }, 'Ethereal test account created');
-  return transporter;
+  // No SMTP configured — skip email sending
+  logger.warn('SMTP non configuré. Les emails ne seront pas envoyés.');
+  transporter = null;
+  transporterPromise = Promise.resolve(null);
+  return null;
 };
 
 const sendVerificationEmail = async ({ to, name, token }) => {
-  const transporter = await createTransporter();
+  const tp = await getTransporter();
+  if (!tp) {
+    logger.info({ to, name }, 'Email de vérification ignoré (SMTP non configuré)');
+    return { info: null, previewUrl: null };
+  }
+
   const verifyUrl = `${process.env.CLIENT_URL}/auth/verify-email?token=${token}`;
 
-  const info = await transporter.sendMail({
+  const info = await tp.sendMail({
     from: `"Lost & Found Tunisie" <${process.env.SMTP_USER || 'noreply@lostandfound.tn'}>`,
     to,
     subject: 'Confirmez votre adresse email — Lost & Found Tunisie',
@@ -64,10 +70,15 @@ const sendVerificationEmail = async ({ to, name, token }) => {
 };
 
 const sendPasswordResetEmail = async ({ to, name, token }) => {
-  const transporter = await createTransporter();
+  const tp = await getTransporter();
+  if (!tp) {
+    logger.info({ to, name }, 'Email de réinitialisation ignoré (SMTP non configuré)');
+    return { info: null, previewUrl: null };
+  }
+
   const resetUrl = `${process.env.CLIENT_URL}/auth/reset-password?token=${token}`;
 
-  const info = await transporter.sendMail({
+  const info = await tp.sendMail({
     from: `"Lost & Found Tunisie" <${process.env.SMTP_USER || 'noreply@lostandfound.tn'}>`,
     to,
     subject: 'Réinitialisation de votre mot de passe — Lost & Found Tunisie',

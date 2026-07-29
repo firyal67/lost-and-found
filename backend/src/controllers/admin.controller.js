@@ -3,6 +3,7 @@ const User    = require('../models/User.model');
 const Post    = require('../models/Post.model');
 const Report  = require('../models/Report.model');
 const Contact = require('../models/Contact.model');
+const Message = require('../models/Message.model');
 const { writeAuditLog, extractRequestMeta } = require('../services/audit.service');
 
 /* ─────────────────────────────────────────────────────────────────────────

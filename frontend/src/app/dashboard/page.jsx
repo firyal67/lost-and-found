@@ -181,12 +181,14 @@ export default function DashboardPage() {
           </div>
 
           {/* User section */}
-          <div className="space-y-3 mb-8">
-            <p className="text-[11px] font-[700] uppercase tracking-[0.08em] mb-3" style={{ color: C.inkMut }}>
-              Mon espace
-            </p>
-            {userCards.map((c) => <DashCard key={c.href} {...c} />)}
-          </div>
+          {!isAdmin && (
+            <div className="space-y-3 mb-8">
+              <p className="text-[11px] font-[700] uppercase tracking-[0.08em] mb-3" style={{ color: C.inkMut }}>
+                Mon espace
+              </p>
+              {userCards.map((c) => <DashCard key={c.href} {...c} />)}
+            </div>
+          )}
 
           {/* Admin section */}
           {isAdmin && (

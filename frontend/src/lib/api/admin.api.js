@@ -48,6 +48,16 @@ export const adminApi = {
    * Métriques globales de la plateforme.
    * @param {string} token
    */
+  /**
+   * DELETE /api/admin/users/:id
+   * Supprime définitivement un compte utilisateur + toutes ses données.
+   * @param {string} id
+   * @param {string} token
+   */
+  deleteUser: async (id, token) => {
+    return apiFetch(`/admin/users/${id}`, { method: "DELETE", token });
+  },
+
   getMetrics: async (token) => {
     return apiFetch("/admin/metrics", { token });
   },

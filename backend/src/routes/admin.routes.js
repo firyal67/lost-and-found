@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const router  = express.Router();
-const { getUsers, banUser, unbanUser, getMetrics } = require('../controllers/admin.controller');
+const { getUsers, banUser, unbanUser, deleteUser, getMetrics } = require('../controllers/admin.controller');
 const { getAuditLog } = require('../controllers/auditLog.controller');
 const { authenticateJWT, authorizeRole } = require('../middleware/auth.middleware');
 const validate = require('../middleware/validate.middleware');
@@ -19,6 +19,9 @@ router.patch('/users/:id/ban', adminActionLimiter, validate(banUserValidator), b
 
 // PATCH /api/admin/users/:id/unban — reactivate a banned user
 router.patch('/users/:id/unban', adminActionLimiter, validate(unbanUserValidator), unbanUser);
+
+// DELETE /api/admin/users/:id — permanently delete a user account + all data
+router.delete('/users/:id', adminActionLimiter, validate(unbanUserValidator), deleteUser);
 
 // GET  /api/admin/metrics        — platform usage metrics
 router.get('/metrics', getMetrics);

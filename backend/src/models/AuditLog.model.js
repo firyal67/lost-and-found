@@ -17,6 +17,7 @@ const mongoose = require('mongoose');
 const AUDIT_ACTIONS = [
   'user.ban',
   'user.unban',
+  'user.deleted',
   'report.reviewed',
   'report.actioned',
   'report.dismissed',

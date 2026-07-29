@@ -261,4 +261,65 @@ const getMetrics = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, banUser, unbanUser, getMetrics };
+/* ─────────────────────────────────────────────────────────────────────────
+   DELETE /api/admin/users/:id
+   Supprime définitivement un compte utilisateur + toutes ses données.
+   Les posts, contacts, messages et signalements sont également supprimés.
+───────────────────────────────────────────────────────────────────────── */
+const deleteUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (id === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'Vous ne pouvez pas supprimer votre propre compte.' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ success: false, message: 'Utilisateur introuvable.' });
+
+    if (user.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'Impossible de supprimer un autre administrateur.' });
+    }
+
+    // Supprimer les messages liés aux contacts de l'utilisateur
+    const userContactIds = await Contact.find({
+      $or: [{ requester: id }, { owner: id }],
+    }).distinct('_id');
+    await Message.deleteMany({ contact: { $in: userContactIds } });
+
+    // Supprimer les contacts
+    await Contact.deleteMany({ $or: [{ requester: id }, { owner: id }] });
+
+    // Supprimer les signalements
+    await Report.deleteMany({ reporter: id });
+
+    // Supprimer les posts
+    await Post.deleteMany({ author: id });
+
+    // Supprimer l'utilisateur
+    await User.findByIdAndDelete(id);
+
+    // ── Audit log ────────────────────────────────────────────────────────
+    await writeAuditLog({
+      action:      'user.deleted',
+      performedBy: req.user._id,
+      targetUser:  user._id,
+      details: {
+        userName:  user.name,
+        userEmail: user.email,
+        reason:    req.body.reason ?? null,
+      },
+      ...extractRequestMeta(req),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Compte de ${user.name} supprimé définitivement avec toutes ses données.`,
+    });
+  } catch (err) {
+    if (err.name === 'CastError') return res.status(400).json({ success: false, message: 'ID invalide.' });
+    next(err);
+  }
+};
+
+module.exports = { getUsers, banUser, unbanUser, deleteUser, getMetrics };

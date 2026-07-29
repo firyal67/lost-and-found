@@ -5,7 +5,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import {
   Loader2, Search, RefreshCw, AlertCircle, ChevronLeft, ChevronRight,
-  ShieldOff, ShieldCheck, Shield, User, X, CheckCircle2, XCircle,
+  ShieldOff, ShieldCheck, Shield, User, X, CheckCircle2, XCircle, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,10 +154,74 @@ function BanConfirmModal({ user, onClose, onConfirm, loading }) {
   );
 }
 
+/* ── DeleteConfirmModal ───────────────────────────────────────────────────── */
+function DeleteConfirmModal({ user, onClose, onConfirm, loading }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog" aria-modal="true">
+      <div className="w-full max-w-[400px] rounded-2xl p-6 animate-scale-in"
+        style={{
+          background: C.surface,
+          border: "1px solid rgba(248,113,113,0.28)",
+          boxShadow: "0 24px 56px rgba(0,0,0,0.65)",
+        }}>
+        <div className="flex items-center justify-center w-14 h-14 rounded-2xl mb-5 mx-auto"
+          style={{
+            background: "rgba(248,113,113,0.10)",
+            border: "1px solid rgba(248,113,113,0.22)",
+          }}>
+          <Trash2 className="h-6 w-6" style={{ color: C.danger }} />
+        </div>
+        <h3 className="font-sans font-[700] text-[19px] tracking-[-0.02em] text-center mb-1"
+          style={{ color: C.ink }}>
+          Supprimer ce compte ?
+        </h3>
+        <p className="text-[14px] font-[600] text-center truncate px-4 mb-3" style={{ color: C.ink }}>
+          {user.name}
+        </p>
+        <p className="text-[12px] text-center mb-6 leading-[1.6]" style={{ color: C.inkMut }}>
+          {user.email}
+        </p>
+        <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg mb-5"
+          style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)" }}>
+          <Trash2 className="h-4 w-4 shrink-0 mt-0.5" style={{ color: C.danger }} />
+          <p className="text-[12px] leading-[1.55]" style={{ color: "#8b91a8" }}>
+            Toutes les données de cet utilisateur seront supprimées définitivement&nbsp;: annonces, contacts, messages et signalements. Cette action est <strong>irréversible</strong>.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose} disabled={loading}
+            className="flex-1 h-10 rounded-lg text-[13px] font-[500] transition-all disabled:opacity-40"
+            style={{ border: `1px solid ${C.border}`, color: C.inkSec, background: "transparent" }}>
+            Annuler
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 h-10 rounded-lg text-[13px] font-[700] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ background: C.danger, color: "#fff" }}>
+            {loading
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Suppression…</>
+              : <><Trash2 className="h-3.5 w-3.5" /> Supprimer</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── UserRow ─────────────────────────────────────────────────────────────── */
 function UserRow({ user: u, currentUserId, getToken, onUpdated }) {
-  const [modal,   setModal]   = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [banModal,    setBanModal]    = useState(false);
+  const [delModal,    setDelModal]    = useState(false);
+  const [banLoading,  setBanLoading]  = useState(false);
+  const [delLoading,  setDelLoading]  = useState(false);
 
   const isCurrentUser = u._id === currentUserId;
   const isAdmin       = u.role === "admin";
@@ -167,30 +231,53 @@ function UserRow({ user: u, currentUserId, getToken, onUpdated }) {
     day: "numeric", month: "short", year: "numeric",
   });
 
-  const handleAction = async (reason) => {
-    setLoading(true);
+  const handleBanAction = async (reason) => {
+    setBanLoading(true);
     try {
       const token = await getToken();
       const fn    = isBanned ? adminApi.unbanUser : adminApi.banUser;
       const data  = await fn(u._id, token, reason ? { reason } : undefined);
       toast.success(data.message);
       onUpdated({ ...u, isActive: !isBanned });
-      setModal(false);
+      setBanModal(false);
     } catch (err) {
       toast.error(err.response?.message || err.message || "Erreur.");
     } finally {
-      setLoading(false);
+      setBanLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDelLoading(true);
+    try {
+      const token = await getToken();
+      const data  = await adminApi.deleteUser(u._id, token);
+      toast.success(data.message);
+      onUpdated({ _id: u._id, deleted: true });
+      setDelModal(false);
+    } catch (err) {
+      toast.error(err.response?.message || err.message || "Erreur.");
+    } finally {
+      setDelLoading(false);
     }
   };
 
   return (
     <>
-      {modal && (
+      {banModal && (
         <BanConfirmModal
           user={u}
-          loading={loading}
-          onClose={() => setModal(false)}
-          onConfirm={handleAction}
+          loading={banLoading}
+          onClose={() => setBanModal(false)}
+          onConfirm={handleBanAction}
+        />
+      )}
+      {delModal && (
+        <DeleteConfirmModal
+          user={u}
+          loading={delLoading}
+          onClose={() => setDelModal(false)}
+          onConfirm={handleDelete}
         />
       )}
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all"
@@ -245,19 +332,28 @@ function UserRow({ user: u, currentUserId, getToken, onUpdated }) {
           {createdAt}
         </p>
 
-        {/* Action button */}
+        {/* Actions */}
         {!isCurrentUser && !isAdmin && (
-          <button onClick={() => setModal(true)} disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-[700] transition-all shrink-0 disabled:opacity-40"
-            style={{
-              background: isBanned ? "rgba(52,211,153,0.08)"     : "rgba(248,113,113,0.08)",
-              color:      isBanned ? C.success                    : C.danger,
-              border:     isBanned ? "1px solid rgba(52,211,153,0.22)" : "1px solid rgba(248,113,113,0.22)",
-            }}>
-            {isBanned
-              ? <><ShieldCheck className="h-3 w-3" /> Réactiver</>
-              : <><ShieldOff   className="h-3 w-3" /> Bannir</>}
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Ban / Reactivate */}
+            <button onClick={() => setBanModal(true)} disabled={banLoading || delLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-[700] transition-all disabled:opacity-40"
+              style={{
+                background: isBanned ? "rgba(52,211,153,0.08)"     : "rgba(248,113,113,0.08)",
+                color:      isBanned ? C.success                    : C.danger,
+                border:     isBanned ? "1px solid rgba(52,211,153,0.22)" : "1px solid rgba(248,113,113,0.22)",
+              }}>
+              {isBanned
+                ? <><ShieldCheck className="h-3 w-3" /> Réactiver</>
+                : <><ShieldOff   className="h-3 w-3" /> Bannir</>}
+            </button>
+            {/* Delete */}
+            <button onClick={() => setDelModal(true)} disabled={banLoading || delLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-[700] transition-all disabled:opacity-40"
+              style={{ background: "rgba(248,113,113,0.08)", color: C.danger, border: "1px solid rgba(248,113,113,0.22)" }}>
+              <Trash2 className="h-3 w-3" /> Supprimer
+            </button>
+          </div>
         )}
       </div>
     </>
@@ -306,6 +402,10 @@ function AdminUsersContent() {
   const handleSearch = (e) => { e.preventDefault(); setQ(qInput.trim()); };
 
   const handleUpdated = useCallback((updated) => {
+    if (updated?.deleted) {
+      setUsers((prev) => prev.filter((u) => u._id !== updated._id));
+      return;
+    }
     setUsers((prev) => prev.map((u) => (u._id === updated._id ? { ...u, ...updated } : u)));
   }, []);
 

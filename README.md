@@ -14,6 +14,17 @@ Plateforme web de déclaration et recherche d'objets perdus et trouvés en Tunis
 
 ---
 
+## Comptes de démonstration
+
+| Rôle | Email | Mot de passe |
+|------|-------|-------------|
+| Admin | `feryelguehis86@gmail.com` | `Admin123!!` |
+| Utilisateur | `feryel@gmail.com` | `User123!!` |
+
+Les autres utilisateurs seedés : `sarra@example.com`, `mohamed@example.com` (mdp : `User1234!`).
+
+---
+
 ## Structure du projet
 
 ```

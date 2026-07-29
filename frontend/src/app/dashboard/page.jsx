@@ -116,6 +116,15 @@ export default function DashboardPage() {
 
   const adminCards = [
     {
+      href: "/dashboard/contacts",
+      icon: MessageSquare,
+      iconColor: "#c084fc",
+      iconBg:    "rgba(192,132,252,0.10)",
+      iconBorder:"rgba(192,132,252,0.22)",
+      title:       "Demandes de contact",
+      description: "Consulter et gérer les demandes de contact reçues",
+    },
+    {
       href: "/dashboard/reports",
       icon: Flag,
       iconColor: C.warning,

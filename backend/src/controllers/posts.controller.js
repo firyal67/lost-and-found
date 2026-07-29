@@ -436,9 +436,8 @@ const getMatchingSuggestions = async (req, res, next) => {
     // ── Filtre MongoDB — large pour laisser le scoring affiner ───────────────
     const filter = { status: 'active', type: oppositeType };
 
-    // On filtre uniquement sur objectType (critère principal)
-    // La ville et la date sont laissées au scoring pour ne pas être trop restrictif
     if (objectType) filter.objectType = objectType;
+    if (city)       filter.city       = { $regex: `^${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
 
     // Fenêtre temporelle élargie : ±90 jours
     if (date) {
@@ -463,7 +462,7 @@ const getMatchingSuggestions = async (req, res, next) => {
         const { total, breakdown, details } = calculateMatchScore(source, candidate);
         return { ...candidate, matchScore: total, matchBreakdown: breakdown, matchDetails: details };
       })
-      .filter((p) => p.matchScore >= 15)            // seuil minimum
+      .filter((p) => p.matchScore >= 40)            // seuil minimum
       .sort((a, b) => b.matchScore - a.matchScore)  // meilleurs en premier
       .slice(0, 5);                                  // max 5 suggestions
 
@@ -494,7 +493,7 @@ const getPostMatches = async (req, res, next) => {
     // On cherche le type opposé
     const oppositeType = source.type === 'lost' ? 'found' : 'lost';
 
-    // Filtre large : même objectType, fenêtre ±90 jours
+    // Filtre large : même objectType, même ville, fenêtre ±90 jours
     const filter = {
       status: 'active',
       type:   oppositeType,
@@ -502,6 +501,7 @@ const getPostMatches = async (req, res, next) => {
     };
 
     if (source.objectType) filter.objectType = source.objectType;
+    if (source.city)       filter.city       = { $regex: `^${source.city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
 
     if (source.date) {
       const d    = new Date(source.date);
@@ -522,7 +522,7 @@ const getPostMatches = async (req, res, next) => {
         const { total, breakdown, details } = calculateMatchScore(source, candidate);
         return { ...candidate, matchScore: total, matchBreakdown: breakdown, matchDetails: details };
       })
-      .filter((p) => p.matchScore >= 15)
+      .filter((p) => p.matchScore >= 40)
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, 5);
 

@@ -8,3 +8,5 @@ next-env.d.ts
 coverage/
 cypress/videos/
 cypress/screenshots/
+.vercel
+.env*

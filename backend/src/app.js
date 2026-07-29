@@ -59,6 +59,19 @@ app.use('/api/admin',    adminRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+// ── Seed route (temporaire) ──────────────────────────────────────────────
+app.post('/api/seed', async (req, res) => {
+  const { key } = req.body;
+  if (key !== process.env.SEED_KEY) return res.status(403).json({ success: false, message: 'Invalid key' });
+  try {
+    const seed = require('./seed');
+    await seed();
+    res.json({ success: true, message: 'Seed completed' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── 404 handler ─────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

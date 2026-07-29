@@ -1,191 +1,98 @@
 # Lost & Found Tunisia
 
-A web platform to help people in Tunisia declare and find lost or found items — CIN, passports, phones, keys, and more.
+Plateforme web de déclaration et recherche d'objets perdus et trouvés en Tunisie.
 
-## Overview
+## Stack technique
 
-Lost & Found Tunisia connects people who have lost objects with those who have found them. Key features include:
+| Couche | Technologie |
+|---|---|
+| Frontend | Next.js 14 (App Router), React 18, Redux Toolkit, Tailwind CSS |
+| Backend | Node.js, Express.js, Socket.IO |
+| Base de données | MongoDB avec Mongoose |
+| Authentification | JWT (access token 15 min + refresh token 7 j, cookie httpOnly) |
+| Déploiement | Vercel (frontend) + Railway (backend) |
 
-- **User registration & authentication** — secure accounts with JWT + refresh tokens
-- **Post announcements** — declare a lost or found item with location, date, and description
-- **Search & filters** — browse announcements by type, city, object type, and date range
-- **Privacy protection** — CIN and passport numbers are never stored in full
-- **Matching engine** — automatic suggestions when a lost item matches a found one
-- **Secure contact** — contact requests with approval flow, no direct data exposure
-- **Admin dashboard** — moderation, reports management, user banning
-- **Role-based access control** — guest, user, and admin roles
+---
 
-## Tech Stack
+## Structure du projet
 
-### Frontend
-- **Next.js 14** (App Router) + **JavaScript (JSX)**
-- **TailwindCSS** + **Shadcn UI**
-- **Redux Toolkit** — global state management
-- **React Hook Form** + **Zod** — form validation
-- **Fetch API** — native HTTP client (no external dependency)
+```
+projet/
+├── frontend/          # Application Next.js
+│   ├── src/
+│   │   ├── app/       # Pages (App Router)
+│   │   ├── components/
+│   │   ├── lib/api/   # Clients API par domaine
+│   │   ├── store/     # Redux slices
+│   │   └── middleware.js  # Protection des routes (Edge)
+│   ├── vercel.json
+│   └── next.config.mjs
+│
+├── backend/           # API Express
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── middleware/
+│   │   ├── validators/
+│   │   ├── services/
+│   │   ├── config/
+│   │   └── utils/
+│   ├── railway.toml
+│   └── .env.example
+│
+└── docs/
+    └── conception/    # Documents d'architecture
+```
+
+---
+
+## Démarrage local
+
+### Prérequis
+
+- Node.js ≥ 18
+- MongoDB local (ou Atlas)
 
 ### Backend
-- **Node.js** + **Express**
-- **MongoDB** + **Mongoose**
-- **JWT** + **bcryptjs** — authentication & password hashing
-- **express-validator** — input validation & sanitization
-
-## Runtime Versions
-
-| Tool | Version |
-|---|---|
-| Node.js | >= 18.x |
-| npm | >= 9.x |
-| MongoDB | >= 6.x |
-
-## Project Structure
-
-```
-lost-found-tunisia/
-├── backend/          # Node.js REST API
-├── frontend/         # Next.js application
-└── docs/
-    └── conception/   # Architecture and design documents
-```
-
-## Frontend Setup
-
-```bash
-cd frontend
-npm install
-```
-
-Copy the environment file:
-```bash
-cp .env.local.example .env.local
-```
-
-Edit `.env.local`:
-```
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-```
-
-Start the development server:
-```bash
-npm run dev
-```
-
-The app will be available at `http://localhost:3000`
-
-## Backend Setup
 
 ```bash
 cd backend
+cp .env.example .env          # Remplir les variables
 npm install
+npm run dev                   # Port 5000
 ```
 
-Copy the environment file:
+### Frontend
+
 ```bash
-cp .env.example .env
+cd frontend
+cp .env.local.example .env.local   # ou créer manuellement
+npm install
+npm run dev                        # Port 3000
 ```
 
-Edit `.env` with your values:
-```
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/lostandfound
-JWT_SECRET=your_strong_secret_here
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_SECRET=your_strong_refresh_secret_here
-JWT_REFRESH_EXPIRES_IN=7d
-CLIENT_URL=http://localhost:3000
-NODE_ENV=development
+Variables d'environnement frontend minimales :
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
 ```
 
-Start the development server:
-```bash
-npm run dev
-```
+---
 
-The API will be available at `http://localhost:5000`
+## Déploiement production
 
-## API Endpoints
+Voir [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) pour le guide complet Railway + Vercel.
 
-### Auth — `/api/auth`
+---
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| POST | `/register` | Create a user account | — |
-| POST | `/login` | Sign in | — |
-| POST | `/logout` | Sign out | ✓ |
-| POST | `/refresh` | Renew access token | Cookie |
-| POST | `/forgot-password` | Request password reset | — |
-| POST | `/reset-password` | Reset password | Token |
+## Documentation API
 
-### Posts — `/api/posts`
+Voir [`docs/API.md`](docs/API.md) pour la référence complète de tous les endpoints.
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| GET | `/` | List announcements (paginated + filters) | — |
-| GET | `/:id` | Get announcement detail | — |
-| POST | `/` | Create an announcement | ✓ |
-| PUT | `/:id` | Update an announcement | ✓ owner |
-| PATCH | `/:id/status` | Change status | ✓ owner |
-| DELETE | `/:id` | Delete an announcement | ✓ owner/admin |
-| GET | `/:id/matches` | Get matching suggestions | ✓ |
+---
 
-### Contacts — `/api/contacts`
+## Architecture
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| POST | `/` | Send a contact request | ✓ |
-| GET | `/` | Get my contact requests | ✓ |
-| PATCH | `/:id` | Approve or reject a request | ✓ owner |
-
-### Reports — `/api/reports`
-
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| POST | `/` | Report an announcement | ✓ |
-| GET | `/` | List reports (admin) | ✓ admin |
-| PATCH | `/:id` | Handle a report | ✓ admin |
-
-### Admin — `/api/admin`
-
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| GET | `/users` | List users | ✓ admin |
-| PATCH | `/users/:id/ban` | Ban a user | ✓ admin |
-| PATCH | `/users/:id/unban` | Unban a user | ✓ admin |
-| GET | `/stats` | Platform metrics | ✓ admin |
-| GET | `/audit` | Audit log | ✓ admin |
-
-### Response format
-
-```json
-{ "success": true, "data": { ... } }
-{ "success": false, "message": "...", "errors": [...] }
-```
-
-## Known Limitations
-
-- Email verification (US-05) is not yet implemented — accounts are active immediately after registration
-- Password reset flow (US-06) is scaffolded but not fully implemented
-- Photo upload (US-14) storage strategy is not yet decided (local vs Cloudinary)
-- The matching engine (US-24) algorithm is planned for Sprint 3
-- Email notifications are not yet implemented
-
-## Suggested Next Improvements
-
-- Add email verification on registration
-- Implement the matching score algorithm with weighted fields (type, city, date, keywords)
-- Add real-time notifications using WebSockets or Server-Sent Events
-- Integrate Cloudinary for photo uploads
-- Add end-to-end tests (Cypress or Playwright)
-- Set up CI/CD pipeline (GitHub Actions)
-
-## Security Notes
-
-- Never commit `.env` files — use `.env.example` as a template
-- JWT secrets must be strong random strings in production
-- Refresh tokens are stored as httpOnly cookies — not accessible via JavaScript
-- All user inputs are validated and sanitized before reaching the database
-- CIN and passport numbers are never stored in full — only masked versions (e.g. `****5678`)
-
-## License
-
-MIT
+Voir [`docs/conception/`](docs/conception/) pour les diagrammes et décisions d'architecture.
